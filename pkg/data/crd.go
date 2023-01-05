@@ -36,6 +36,7 @@ func createCRDs(ctx context.Context, restConfig *rest.Config) error {
 		BatchCreateCRDsIfNotExisted(
 			crd.FromGV(harvesterv1.SchemeGroupVersion, "KeyPair", harvesterv1.KeyPair{}),
 			crd.FromGV(harvesterv1.SchemeGroupVersion, "Upgrade", harvesterv1.Upgrade{}),
+			crd.FromGV(harvesterv1.SchemeGroupVersion, "UpgradeLog", harvesterv1.UpgradeLog{}),
 			crd.FromGV(harvesterv1.SchemeGroupVersion, "Version", harvesterv1.Version{}),
 			crd.FromGV(harvesterv1.SchemeGroupVersion, "VirtualMachineImage", harvesterv1.VirtualMachineImage{}),
 			crd.FromGV(harvesterv1.SchemeGroupVersion, "VirtualMachineTemplate", harvesterv1.VirtualMachineTemplate{}),

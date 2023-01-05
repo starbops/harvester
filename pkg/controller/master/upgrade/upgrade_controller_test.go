@@ -58,8 +58,10 @@ func TestUpgradeHandler_OnChanged(t *testing.T) {
 		{
 			name: "upgrade triggers an image creation from ISOURL",
 			given: input{
-				key:     testUpgradeName,
-				upgrade: newTestUpgradeBuilder().Build(),
+				key: testUpgradeName,
+				upgrade: newTestUpgradeBuilder().
+					InitStatus().
+					LogReadyCondition(v1.ConditionFalse, "Disabled", "Upgrade observability is administratively disabled").Build(),
 				version: newVersionBuilder(testVersion).Build(),
 				vmi:     newTestExistingVirtualMachineImage(upgradeNamespace, testUpgradeImage),
 				nodes: []*v1.Node{
@@ -71,14 +73,17 @@ func TestUpgradeHandler_OnChanged(t *testing.T) {
 			expected: output{
 				vmi: newTestVirtualMachineImage(),
 				upgrade: newTestUpgradeBuilder().InitStatus().
+					LogReadyCondition(v1.ConditionFalse, "Disabled", "Upgrade observability is administratively disabled").
 					ImageReadyCondition(v1.ConditionUnknown, "", "").Build(),
 			},
 		},
 		{
 			name: "upgrade with an existing image",
 			given: input{
-				key:     testUpgradeName,
-				upgrade: newTestUpgradeBuilder().WithImage(testUpgradeImage).Build(),
+				key: testUpgradeName,
+				upgrade: newTestUpgradeBuilder().WithImage(testUpgradeImage).
+					InitStatus().
+					LogReadyCondition(v1.ConditionFalse, "Disabled", "Upgrade observability is administratively disabled").Build(),
 				version: newVersionBuilder(testVersion).Build(),
 				vmi:     newTestExistingVirtualMachineImage(upgradeNamespace, testUpgradeImage),
 				nodes: []*v1.Node{
@@ -89,6 +94,7 @@ func TestUpgradeHandler_OnChanged(t *testing.T) {
 			},
 			expected: output{
 				upgrade: newTestUpgradeBuilder().InitStatus().
+					LogReadyCondition(v1.ConditionFalse, "Disabled", "Upgrade observability is administratively disabled").
 					WithImage(testUpgradeImage).
 					ImageIDStatus(fmt.Sprintf("%s/%s", upgradeNamespace, testUpgradeImage)).
 					ImageReadyCondition(v1.ConditionUnknown, "", "").Build(),
@@ -103,15 +109,16 @@ func TestUpgradeHandler_OnChanged(t *testing.T) {
 		}
 		var k8sclientset = k8sfake.NewSimpleClientset(nodes...)
 		var handler = &upgradeHandler{
-			namespace:     harvesterSystemNamespace,
-			nodeCache:     fakeclients.NodeCache(k8sclientset.CoreV1().Nodes),
-			planClient:    fakeclients.PlanClient(clientset.UpgradeV1().Plans),
-			upgradeClient: fakeclients.UpgradeClient(clientset.HarvesterhciV1beta1().Upgrades),
-			upgradeCache:  fakeclients.UpgradeCache(clientset.HarvesterhciV1beta1().Upgrades),
-			versionCache:  fakeclients.VersionCache(clientset.HarvesterhciV1beta1().Versions),
-			vmClient:      fakeclients.VirtualMachineClient(clientset.KubevirtV1().VirtualMachines),
-			vmImageClient: fakeclients.VirtualMachineImageClient(clientset.HarvesterhciV1beta1().VirtualMachineImages),
-			vmImageCache:  fakeclients.VirtualMachineImageCache(clientset.HarvesterhciV1beta1().VirtualMachineImages),
+			namespace:        harvesterSystemNamespace,
+			nodeCache:        fakeclients.NodeCache(k8sclientset.CoreV1().Nodes),
+			planClient:       fakeclients.PlanClient(clientset.UpgradeV1().Plans),
+			upgradeClient:    fakeclients.UpgradeClient(clientset.HarvesterhciV1beta1().Upgrades),
+			upgradeCache:     fakeclients.UpgradeCache(clientset.HarvesterhciV1beta1().Upgrades),
+			upgradeLogClient: fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
+			versionCache:     fakeclients.VersionCache(clientset.HarvesterhciV1beta1().Versions),
+			vmClient:         fakeclients.VirtualMachineClient(clientset.KubevirtV1().VirtualMachines),
+			vmImageClient:    fakeclients.VirtualMachineImageClient(clientset.HarvesterhciV1beta1().VirtualMachineImages),
+			vmImageCache:     fakeclients.VirtualMachineImageCache(clientset.HarvesterhciV1beta1().VirtualMachineImages),
 		}
 		var actual output
 		actual.upgrade, actual.err = handler.OnChanged(tc.given.key, tc.given.upgrade)

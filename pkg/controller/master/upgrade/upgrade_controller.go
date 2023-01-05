@@ -60,16 +60,17 @@ const (
 
 // upgradeHandler Creates Plan CRDs to trigger upgrades
 type upgradeHandler struct {
-	ctx           context.Context
-	namespace     string
-	nodeCache     ctlcorev1.NodeCache
-	jobClient     v1.JobClient
-	jobCache      v1.JobCache
-	upgradeClient ctlharvesterv1.UpgradeClient
-	upgradeCache  ctlharvesterv1.UpgradeCache
-	versionCache  ctlharvesterv1.VersionCache
-	planClient    upgradectlv1.PlanClient
-	planCache     upgradectlv1.PlanCache
+	ctx              context.Context
+	namespace        string
+	nodeCache        ctlcorev1.NodeCache
+	jobClient        v1.JobClient
+	jobCache         v1.JobCache
+	upgradeClient    ctlharvesterv1.UpgradeClient
+	upgradeCache     ctlharvesterv1.UpgradeCache
+	upgradeLogClient ctlharvesterv1.UpgradeLogClient
+	versionCache     ctlharvesterv1.VersionCache
+	planClient       upgradectlv1.PlanClient
+	planCache        upgradectlv1.PlanCache
 
 	vmImageClient ctlharvesterv1.VirtualMachineImageClient
 	vmImageCache  ctlharvesterv1.VirtualMachineImageCache
@@ -94,12 +95,33 @@ func (h *upgradeHandler) OnChanged(key string, upgrade *harvesterv1.Upgrade) (*h
 
 	if harvesterv1.UpgradeCompleted.GetStatus(upgrade) == "" {
 		logrus.Infof("Initialize upgrade %s/%s", upgrade.Namespace, upgrade.Name)
+
 		if err := h.resetLatestUpgradeLabel(upgrade.Name); err != nil {
 			return nil, err
 		}
-		logrus.Info("Creating upgrade repo image")
+
 		toUpdate := upgrade.DeepCopy()
 		initStatus(toUpdate)
+
+		if !upgrade.Spec.LogEnabled {
+			logrus.Info("Upgrade observability is administratively disabled")
+			setLogReadyCondition(toUpdate, corev1.ConditionFalse, "Disabled", "Upgrade observability is administratively disabled")
+			toUpdate.Labels[upgradeStateLabel] = StateLoggingInfraPrepared
+			return h.upgradeClient.Update(toUpdate)
+		} else {
+			logrus.Info("Enabling upgrade observability")
+			upgradeLog, err := h.upgradeLogClient.Create(prepareUpgradeLog(upgrade))
+			if err != nil {
+				return nil, err
+			}
+			logrus.Infof("upgradeLog %s/%s created", upgradeLog.Namespace, upgradeLog.Name)
+		}
+	}
+
+	if (harvesterv1.LogReady.IsTrue(upgrade) || harvesterv1.LogReady.IsFalse(upgrade)) && harvesterv1.ImageReady.GetStatus(upgrade) == "" {
+		logrus.Info("Creating upgrade repo image")
+		toUpdate := upgrade.DeepCopy()
+		// initStatus(toUpdate)
 
 		if upgrade.Spec.Image == "" {
 			version, err := h.versionCache.Get(h.namespace, upgrade.Spec.Version)
@@ -362,10 +384,11 @@ func (h *upgradeHandler) isSingleNodeCluster() (string, error) {
 
 func initStatus(upgrade *harvesterv1.Upgrade) {
 	harvesterv1.UpgradeCompleted.CreateUnknownIfNotExists(upgrade)
+	harvesterv1.LogReady.CreateUnknownIfNotExists(upgrade)
 	if upgrade.Labels == nil {
 		upgrade.Labels = make(map[string]string)
 	}
-	upgrade.Labels[upgradeStateLabel] = StateCreatingUpgradeImage
+	upgrade.Labels[upgradeStateLabel] = StatePreparingLoggingInfra
 	upgrade.Labels[harvesterLatestUpgradeLabel] = "true"
 	upgrade.Status.PreviousVersion = settings.ServerVersion.Get()
 }

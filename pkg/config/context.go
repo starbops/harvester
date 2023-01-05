@@ -30,6 +30,7 @@ import (
 	ctlharvesterv1 "github.com/harvester/harvester/pkg/generated/controllers/harvesterhci.io"
 	cniv1 "github.com/harvester/harvester/pkg/generated/controllers/k8s.cni.cncf.io"
 	"github.com/harvester/harvester/pkg/generated/controllers/kubevirt.io"
+	loggingv1 "github.com/harvester/harvester/pkg/generated/controllers/logging.banzaicloud.io"
 	longhornv1 "github.com/harvester/harvester/pkg/generated/controllers/longhorn.io"
 	monitoringv1 "github.com/harvester/harvester/pkg/generated/controllers/monitoring.coreos.com"
 	"github.com/harvester/harvester/pkg/generated/controllers/networking.k8s.io"
@@ -81,6 +82,7 @@ type Management struct {
 
 	VirtFactory              *kubevirt.Factory
 	HarvesterFactory         *ctlharvesterv1.Factory
+	LoggingFactory           *loggingv1.Factory
 	CoreFactory              *corev1.Factory
 	CniFactory               *cniv1.Factory
 	AppsFactory              *appsv1.Factory
