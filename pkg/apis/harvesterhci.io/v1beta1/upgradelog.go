@@ -13,7 +13,7 @@ var (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:shortName=lg;lgs,scope=Namespaced
+// +kubebuilder:resource:scope=Namespaced
 // +kubebuilder:printcolumn:name="UPGRADE",type="string",JSONPath=`.spec.upgrade`
 
 type UpgradeLog struct {

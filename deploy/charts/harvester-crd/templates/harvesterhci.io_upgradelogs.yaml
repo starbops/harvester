@@ -13,9 +13,6 @@ spec:
     kind: UpgradeLog
     listKind: UpgradeLogList
     plural: upgradelogs
-    shortNames:
-    - lg
-    - lgs
     singular: upgradelog
   scope: Namespaced
   versions:
