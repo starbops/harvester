@@ -375,6 +375,9 @@ func (h *upgradeHandler) cleanup(upgrade *harvesterv1.Upgrade, cleanJobs bool) e
 		upgradeLogName := fmt.Sprintf("%s-upgradelog", upgrade.Name)
 		upgradeLog, err := h.upgradeLogCache.Get(upgradeNamespace, upgradeLogName)
 		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
 			return err
 		}
 		upgradeLogToUpdate := upgradeLog.DeepCopy()
