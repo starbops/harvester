@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"sync"
 
 	"github.com/sirupsen/logrus"
 
@@ -45,10 +44,6 @@ const (
 	upgradeLogClusterOutputReady      = "ClusterOutputReady"
 )
 
-var (
-	upgradeLogControllerLock sync.Mutex
-)
-
 type handler struct {
 	ctx                 context.Context
 	namespace           string
@@ -72,27 +67,24 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		return upgradeLog, nil
 	}
 
-	upgradeLogControllerLock.Lock()
-	defer upgradeLogControllerLock.Unlock()
-
 	if harvesterv1.UpgradeLogReady.GetStatus(upgradeLog) == "" {
-		logrus.Infof("Initialize upgradeLog %s/%s", upgradeLog.Namespace, upgradeLog.Name)
+		logrus.Infof("[%s] Initialize upgradeLog %s/%s", upgradeLogControllerName, upgradeLog.Namespace, upgradeLog.Name)
 
 		toUpdate := upgradeLog.DeepCopy()
 		harvesterv1.UpgradeLogReady.CreateUnknownIfNotExists(toUpdate)
 
-		logrus.Info("Deploy logging-operator")
+		logrus.Infof("[%s] Deploy logging-operator", upgradeLogControllerName)
 		harvesterv1.OperatorDeployed.CreateUnknownIfNotExists(toUpdate)
 
 		// NOTE: As of v1.1.1, the logging-operator is by default deployed (rancher-logging), so we set the condition to true directly.
 		setOperatorDeployedCondition(toUpdate, corev1.ConditionTrue, "", "")
-		logrus.Info("logging-operator deployed")
+		logrus.Infof("[%s] logging-operator deployed", upgradeLogControllerName)
 
 		return h.upgradeLogClient.Update(toUpdate)
 	}
 
 	if harvesterv1.OperatorDeployed.IsTrue(upgradeLog) && harvesterv1.InfraScaffolded.GetStatus(upgradeLog) == "" {
-		logrus.Info("Start to scaffold the logging infrastructure for upgrade procedure")
+		logrus.Infof("[%s] Start to scaffold the logging infrastructure for upgrade procedure", upgradeLogControllerName)
 
 		toUpdate := upgradeLog.DeepCopy()
 
@@ -107,7 +99,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 
 		return h.upgradeLogClient.Update(toUpdate)
 	} else if harvesterv1.OperatorDeployed.IsTrue(upgradeLog) && harvesterv1.InfraScaffolded.IsUnknown(upgradeLog) {
-		logrus.Info("Check if the logging infrastructure is ready")
+		logrus.Infof("[%s] Check if the logging infrastructure is ready", upgradeLogControllerName)
 
 		toUpdate := upgradeLog.DeepCopy()
 
@@ -121,7 +113,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		}
 
 		if isInfraReady := (fluentBitAnnotation == upgradeLogFluentBitReady) && (fluentdAnnotation == upgradeLogFluentdReady); isInfraReady {
-			logrus.Info("The logging infrastructure is ready")
+			logrus.Infof("[%s] Logging infrastructure is ready", upgradeLogControllerName)
 			setInfraScaffoldedCondition(toUpdate, corev1.ConditionTrue, "", "")
 			return h.upgradeLogClient.Update(toUpdate)
 		}
@@ -130,7 +122,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 	}
 
 	if harvesterv1.InfraScaffolded.IsTrue(upgradeLog) && harvesterv1.UpgradeLogReady.IsUnknown(upgradeLog) {
-		logrus.Info("Check if the log collecting rules are installed")
+		logrus.Infof("[%s] Check if the log collecting rules are installed", upgradeLogControllerName)
 
 		toUpdate := upgradeLog.DeepCopy()
 
@@ -138,11 +130,11 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		clusterOutputAnnotation := upgradeLog.Annotations[upgradeLogClusterOutputAnnotation]
 
 		if isLogReady := (clusterOutputAnnotation == upgradeLogClusterOutputReady) && (clusterFlowAnnotation == upgradeLogClusterFlowReady); isLogReady {
-			logrus.Info("The log collecting rules are existed and activated")
+			logrus.Infof("[%s] Log collecting rules are existed and activated", upgradeLogControllerName)
 			setUpgradeLogReadyCondition(toUpdate, corev1.ConditionTrue, "", "")
 			return h.upgradeLogClient.Update(toUpdate)
 		} else {
-			logrus.Info("Start to create the clusterflow and clusteroutput resources for collecting upgrade logs")
+			logrus.Infof("[%s] Start to create the clusterflow and clusteroutput resources for collecting upgrade logs", upgradeLogControllerName)
 			if _, err := h.clusterOutputClient.Create(prepareClusterOutput(upgradeLog)); err != nil && !apierrors.IsAlreadyExists(err) {
 				return nil, err
 			}
@@ -154,7 +146,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 	}
 
 	if harvesterv1.UpgradeLogReady.IsTrue(upgradeLog) {
-		logrus.Info("The logging infrastructure is ready, proceed the upgrade procedure")
+		logrus.Infof("[%s] Logging infrastructure is ready, proceed the upgrade procedure", upgradeLogControllerName)
 
 		upgradeName := upgradeLog.Spec.Upgrade
 		upgrade, err := h.upgradeCache.Get(upgradeLogNamespace, upgradeName)
@@ -182,9 +174,9 @@ func (h *handler) OnUpgradeLogRemove(_ string, upgradeLog *harvesterv1.UpgradeLo
 		return nil, nil
 	}
 
-	logrus.Infof("Deleting upgradeLog %s", upgradeLog.Name)
+	logrus.Infof("[%s] Deleting upgradeLog %s", upgradeLogControllerName, upgradeLog.Name)
 
-	logrus.Infof("Tearing down the logging infrastructure for upgrade procedure")
+	logrus.Infof("[%s] Tearing down the logging infrastructure for upgrade procedure", upgradeLogControllerName)
 	if err := h.clusterFlowClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-clusterflow", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil {
 		return nil, err
 	}
@@ -215,8 +207,10 @@ func (h *handler) OnClusterFlowChange(_ string, clusterFlow *loggingv1.ClusterFl
 
 	toUpdate := upgradeLog.DeepCopy()
 
-	if *clusterFlow.Status.Active {
-		logrus.Infof("ClusterFlow %s/%s is now active", clusterFlow.Namespace, clusterFlow.Name)
+	if clusterFlow.Status.Active == nil {
+		return clusterFlow, nil
+	} else if *clusterFlow.Status.Active {
+		logrus.Infof("[%s] clusterFlow %s/%s is now active", clusterFlowControllerName, clusterFlow.Namespace, clusterFlow.Name)
 		toUpdate.Annotations[upgradeLogClusterFlowAnnotation] = upgradeLogClusterFlowReady
 	}
 
@@ -246,8 +240,10 @@ func (h *handler) OnClusterOutputChange(_ string, clusterOutput *loggingv1.Clust
 
 	toUpdate := upgradeLog.DeepCopy()
 
-	if *clusterOutput.Status.Active {
-		logrus.Infof("ClusterOutput %s/%s is now active", clusterOutput.Namespace, clusterOutput.Name)
+	if clusterOutput.Status.Active == nil {
+		return clusterOutput, nil
+	} else if *clusterOutput.Status.Active {
+		logrus.Infof("[%s] clusterOutput %s/%s is now active", clusterOutputControllerName, clusterOutput.Namespace, clusterOutput.Name)
 		toUpdate.Annotations[upgradeLogClusterOutputAnnotation] = upgradeLogClusterOutputReady
 	}
 
@@ -265,16 +261,12 @@ func (h *handler) OnDaemonSetChange(_ string, daemonSet *appsv1.DaemonSet) (*app
 		return daemonSet, nil
 	}
 
-	upgradeLogControllerLock.Lock()
-	defer upgradeLogControllerLock.Unlock()
-
-	logrus.Infof("Processing daemonSet %s/%s", daemonSet.Namespace, daemonSet.Name)
+	logrus.Infof("[%s] Processing daemonSet %s/%s", daemonSetControllerName, daemonSet.Namespace, daemonSet.Name)
 
 	upgradeLogName, ok := daemonSet.Labels[harvesterUpgradeLogLabel]
 	if !ok {
 		return daemonSet, nil
 	}
-
 	upgradeLog, err := h.upgradeLogCache.Get(upgradeLogNamespace, upgradeLogName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -282,12 +274,11 @@ func (h *handler) OnDaemonSetChange(_ string, daemonSet *appsv1.DaemonSet) (*app
 		}
 		return nil, err
 	}
-
-	logrus.Infof("Found relevant upgradeLog %s/%s", upgradeLog.Namespace, upgradeLog.Name)
+	logrus.Infof("[%s] Found relevant upgradeLog %s/%s", daemonSetControllerName, upgradeLog.Namespace, upgradeLog.Name)
 
 	fluentBitAnnotation, ok := upgradeLog.Annotations[upgradeLogFluentBitAnnotation]
 	if ok && (fluentBitAnnotation == upgradeLogFluentBitReady) {
-		logrus.Infof("Skiped syncing because fluentbit was marked as ready")
+		logrus.Infof("[%s] Skipped syncing because fluentbit was marked as ready", daemonSetControllerName)
 		return daemonSet, nil
 	}
 
@@ -297,6 +288,9 @@ func (h *handler) OnDaemonSetChange(_ string, daemonSet *appsv1.DaemonSet) (*app
 		setInfraScaffoldedCondition(toUpdate, corev1.ConditionFalse, "FluentBitNotReady", "")
 	} else {
 		setInfraScaffoldedCondition(toUpdate, corev1.ConditionTrue, "FluentBitReady", "")
+		if toUpdate.Annotations == nil {
+			toUpdate.Annotations = make(map[string]string)
+		}
 		toUpdate.Annotations[upgradeLogFluentBitAnnotation] = upgradeLogFluentBitReady
 	}
 
@@ -310,7 +304,12 @@ func (h *handler) OnDaemonSetChange(_ string, daemonSet *appsv1.DaemonSet) (*app
 }
 
 func (h *handler) OnJobChange(_ string, job *batchv1.Job) (*batchv1.Job, error) {
-	logrus.Infof("Processing job %s/%s", job.Namespace, job.Name)
+	if job == nil || job.DeletionTimestamp != nil {
+		return job, nil
+	}
+
+	logrus.Infof("[%s] Processing job %s/%s", jobControllerName, job.Namespace, job.Name)
+
 	return job, nil
 }
 
@@ -319,16 +318,12 @@ func (h *handler) OnStatefulSetChange(_ string, statefulSet *appsv1.StatefulSet)
 		return statefulSet, nil
 	}
 
-	upgradeLogControllerLock.Lock()
-	defer upgradeLogControllerLock.Unlock()
-
-	logrus.Infof("Processing statefulSet %s/%s", statefulSet.Namespace, statefulSet.Name)
+	logrus.Infof("[%s] Processing statefulSet %s/%s", statefulSetControllerName, statefulSet.Namespace, statefulSet.Name)
 
 	upgradeLogName, ok := statefulSet.Labels[harvesterUpgradeLogLabel]
 	if !ok {
 		return statefulSet, nil
 	}
-
 	upgradeLog, err := h.upgradeLogCache.Get(upgradeLogNamespace, upgradeLogName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -336,12 +331,11 @@ func (h *handler) OnStatefulSetChange(_ string, statefulSet *appsv1.StatefulSet)
 		}
 		return nil, err
 	}
-
-	logrus.Infof("Found relevant upgradeLog %s/%s", upgradeLog.Namespace, upgradeLog.Name)
+	logrus.Infof("[%s] Found relevant upgradeLog %s/%s", statefulSetControllerName, upgradeLog.Namespace, upgradeLog.Name)
 
 	fluentdAnnotation, ok := upgradeLog.Annotations[upgradeLogFluentdAnnotation]
 	if ok && (fluentdAnnotation == upgradeLogFluentdReady) {
-		logrus.Infof("Skiped syncing because fluentd was marked as ready")
+		logrus.Infof("[%s] Skipped syncing because fluentd was marked as ready", statefulSetControllerName)
 		return statefulSet, nil
 	}
 
@@ -351,6 +345,9 @@ func (h *handler) OnStatefulSetChange(_ string, statefulSet *appsv1.StatefulSet)
 		setInfraScaffoldedCondition(toUpdate, corev1.ConditionFalse, "FluentdNotReady", "")
 	} else {
 		setInfraScaffoldedCondition(toUpdate, corev1.ConditionTrue, "FluentdReady", "")
+		if toUpdate.Annotations == nil {
+			toUpdate.Annotations = make(map[string]string)
+		}
 		toUpdate.Annotations[upgradeLogFluentdAnnotation] = upgradeLogFluentdReady
 	}
 

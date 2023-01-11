@@ -56,6 +56,34 @@ func TestUpgradeHandler_OnChanged(t *testing.T) {
 		expected output
 	}{
 		{
+			name: "new upgrade with log disabled",
+			given: input{
+				key:     testUpgradeName,
+				upgrade: newTestUpgradeBuilder().WithLogEnabled(false).Build(),
+				version: newVersionBuilder(testVersion).Build(),
+				vmi:     newTestExistingVirtualMachineImage(upgradeNamespace, testUpgradeImage),
+			},
+			expected: output{
+				upgrade: newTestUpgradeBuilder().InitStatus().
+					WithLabel(upgradeStateLabel, StateLoggingInfraPrepared).
+					LogReadyCondition(v1.ConditionFalse, "Disabled", "Upgrade observability is administratively disabled").Build(),
+			},
+		},
+		{
+			name: "new upgrade with log enabled",
+			given: input{
+				key:     testUpgradeName,
+				upgrade: newTestUpgradeBuilder().WithLogEnabled(true).Build(),
+				version: newVersionBuilder(testVersion).Build(),
+				vmi:     newTestExistingVirtualMachineImage(upgradeNamespace, testUpgradeImage),
+			},
+			expected: output{
+				upgrade: newTestUpgradeBuilder().WithLogEnabled(true).InitStatus().
+					WithLabel(upgradeStateLabel, StatePreparingLoggingInfra).
+					LogReadyCondition(v1.ConditionUnknown, "", "").Build(),
+			},
+		},
+		{
 			name: "upgrade triggers an image creation from ISOURL",
 			given: input{
 				key: testUpgradeName,

@@ -15,8 +15,8 @@ import (
 
 type UpgradeLogClient func(string) harv1type.UpgradeLogInterface
 
-func (c UpgradeLogClient) Create(*harvesterv1.UpgradeLog) (*harvesterv1.UpgradeLog, error) {
-	panic("implement me")
+func (c UpgradeLogClient) Create(upgradeLog *harvesterv1.UpgradeLog) (*harvesterv1.UpgradeLog, error) {
+	return c(upgradeLog.Namespace).Create(context.TODO(), upgradeLog, metav1.CreateOptions{})
 }
 func (c UpgradeLogClient) Update(upgradeLog *harvesterv1.UpgradeLog) (*harvesterv1.UpgradeLog, error) {
 	return c(upgradeLog.Namespace).Update(context.TODO(), upgradeLog, metav1.UpdateOptions{})

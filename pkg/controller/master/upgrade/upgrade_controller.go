@@ -110,11 +110,12 @@ func (h *upgradeHandler) OnChanged(key string, upgrade *harvesterv1.Upgrade) (*h
 			return h.upgradeClient.Update(toUpdate)
 		} else {
 			logrus.Info("Enabling upgrade observability")
-			upgradeLog, err := h.upgradeLogClient.Create(prepareUpgradeLog(upgrade))
-			if err != nil {
-				return nil, err
+			if _, err := h.upgradeLogClient.Create(prepareUpgradeLog(upgrade)); err != nil && !apierrors.IsAlreadyExists(err) {
+				logrus.Warn("Failed to create the upgradeLog resource")
+				setLogReadyCondition(toUpdate, corev1.ConditionFalse, err.Error(), "")
 			}
-			logrus.Infof("upgradeLog %s/%s created", upgradeLog.Namespace, upgradeLog.Name)
+			harvesterv1.LogReady.CreateUnknownIfNotExists(toUpdate)
+			return h.upgradeClient.Update(toUpdate)
 		}
 	}
 
@@ -384,7 +385,7 @@ func (h *upgradeHandler) isSingleNodeCluster() (string, error) {
 
 func initStatus(upgrade *harvesterv1.Upgrade) {
 	harvesterv1.UpgradeCompleted.CreateUnknownIfNotExists(upgrade)
-	harvesterv1.LogReady.CreateUnknownIfNotExists(upgrade)
+	// harvesterv1.LogReady.CreateUnknownIfNotExists(upgrade)
 	if upgrade.Labels == nil {
 		upgrade.Labels = make(map[string]string)
 	}

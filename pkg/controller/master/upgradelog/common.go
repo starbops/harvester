@@ -76,7 +76,7 @@ func prepareLogging(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Logging {
 						Volume: &volume.KubernetesVolume{
 							PersistentVolumeClaim: &volume.PersistentVolumeClaim{
 								PersistentVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "log-archive",
+									ClaimName: fmt.Sprintf("%s-log-archive", upgradeLog.Name),
 									ReadOnly:  false,
 								},
 							},

@@ -65,6 +65,7 @@ type Scaled struct {
 	BatchFactory             *batchv1.Factory
 	RbacFactory              *rbacv1.Factory
 	CniFactory               *cniv1.Factory
+	LoggingFactory           *loggingv1.Factory
 	SnapshotFactory          *snapshotv1.Factory
 	StorageFactory           *storagev1.Factory
 	LonghornFactory          *longhornv1.Factory
@@ -166,6 +167,13 @@ func SetupScaled(ctx context.Context, restConfig *rest.Config, opts *generic.Fac
 		return nil, nil, err
 	}
 	scaled.CniFactory = cni
+	scaled.starters = append(scaled.starters, cni)
+
+	logging, err := loggingv1.NewFactoryFromConfigWithOptions(restConfig, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	scaled.LoggingFactory = logging
 	scaled.starters = append(scaled.starters, cni)
 
 	snapshot, err := snapshotv1.NewFactoryFromConfigWithOptions(restConfig, opts)
@@ -333,6 +341,13 @@ func setupManagement(ctx context.Context, restConfig *rest.Config, opts *generic
 	}
 	management.ClusterFactory = cluster
 	management.starters = append(management.starters, cluster)
+
+	logging, err := loggingv1.NewFactoryFromConfigWithOptions(restConfig, opts)
+	if err != nil {
+		return nil, err
+	}
+	management.LoggingFactory = logging
+	management.starters = append(management.starters, logging)
 
 	monitoring, err := monitoringv1.NewFactoryFromConfigWithOptions(restConfig, opts)
 	if err != nil {

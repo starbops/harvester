@@ -55,7 +55,7 @@ func newTestUpgradeLogBuilder() *upgradeLogBuilder {
 		Upgrade(testUpgradeName)
 }
 
-func TestHandler_OnUpgradeLogChanged(t *testing.T) {
+func TestHandler_OnUpgradeLogChange(t *testing.T) {
 	type input struct {
 		key        string
 		upgrade    *harvesterv1.Upgrade

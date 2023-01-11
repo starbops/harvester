@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 
+	loggingv1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
 	longhornv1 "github.com/longhorn/longhorn-manager/k8s/pkg/apis/longhorn/v1beta1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	fleetv1alpha1 "github.com/rancher/fleet/pkg/apis/fleet.cattle.io/v1alpha1"
@@ -32,6 +33,7 @@ func createCRDs(ctx context.Context, restConfig *rest.Config) error {
 			crd.NonNamespacedFromGV(rancherv3.SchemeGroupVersion, "Token", rancherv3.Token{}),
 			crd.NonNamespacedFromGV(rancherv3.SchemeGroupVersion, "NodeDriver", rancherv3.NodeDriver{}),
 			crd.NonNamespacedFromGV(upgradev1.SchemeGroupVersion, "Plan", upgradev1.Plan{}),
+			crd.NonNamespacedFromGV(loggingv1.GroupVersion, "Logging", loggingv1.Logging{}),
 		).
 		BatchCreateCRDsIfNotExisted(
 			crd.FromGV(harvesterv1.SchemeGroupVersion, "KeyPair", harvesterv1.KeyPair{}),
@@ -59,6 +61,8 @@ func createCRDs(ctx context.Context, restConfig *rest.Config) error {
 			crd.FromGV(harvesterv1.SchemeGroupVersion, "Addon", harvesterv1.Addon{}).WithStatus(),
 			crd.FromGV(monitoringv1.SchemeGroupVersion, "Prometheus", monitoringv1.Prometheus{}),
 			crd.FromGV(monitoringv1.SchemeGroupVersion, "Alertmanager", monitoringv1.Alertmanager{}),
+			crd.FromGV(loggingv1.GroupVersion, "ClusterFlow", loggingv1.ClusterFlow{}),
+			crd.FromGV(loggingv1.GroupVersion, "ClusterOutput", loggingv1.ClusterOutput{}),
 		).
 		BatchWait()
 }
