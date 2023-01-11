@@ -145,9 +145,10 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		}
 	}
 
-	if harvesterv1.UpgradeLogReady.IsTrue(upgradeLog) {
+	if harvesterv1.UpgradeLogReady.IsTrue(upgradeLog) && harvesterv1.UpgradeEnded.GetStatus(upgradeLog) == "" {
 		logrus.Infof("[%s] Logging infrastructure is ready, proceed the upgrade procedure", upgradeLogControllerName)
 
+		// handle corresponding upgrade resource
 		upgradeName := upgradeLog.Spec.Upgrade
 		upgrade, err := h.upgradeCache.Get(upgradeLogNamespace, upgradeName)
 		if err != nil {
@@ -163,7 +164,28 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		harvesterv1.LogReady.Reason(upgradeToUpdate, "")
 		harvesterv1.LogReady.Message(upgradeToUpdate, "")
 
-		h.upgradeClient.Update(upgradeToUpdate)
+		if _, err := h.upgradeClient.Update(upgradeToUpdate); err != nil {
+			return upgradeLog, err
+		}
+
+		// handle upgradeLog resource
+		toUpdate := upgradeLog.DeepCopy()
+		harvesterv1.UpgradeEnded.CreateUnknownIfNotExists(toUpdate)
+
+		return h.upgradeLogClient.Update(toUpdate)
+	}
+
+	if harvesterv1.UpgradeEnded.IsTrue(upgradeLog) && harvesterv1.DownloadReady.GetStatus(upgradeLog) == "" {
+		logrus.Infof("[%s] Stop collecting logs", upgradeLogControllerName)
+
+		if err := h.cleanup(upgradeLog); err != nil {
+			return upgradeLog, err
+		}
+
+		toUpdate := upgradeLog.DeepCopy()
+		harvesterv1.DownloadReady.CreateUnknownIfNotExists(toUpdate)
+
+		return h.upgradeLogClient.Update(toUpdate)
 	}
 
 	return upgradeLog, nil
@@ -176,18 +198,7 @@ func (h *handler) OnUpgradeLogRemove(_ string, upgradeLog *harvesterv1.UpgradeLo
 
 	logrus.Infof("[%s] Deleting upgradeLog %s", upgradeLogControllerName, upgradeLog.Name)
 
-	logrus.Infof("[%s] Tearing down the logging infrastructure for upgrade procedure", upgradeLogControllerName)
-	if err := h.clusterFlowClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-clusterflow", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil {
-		return nil, err
-	}
-	if err := h.clusterOutputClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-clusteroutput", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil {
-		return nil, err
-	}
-	if err := h.loggingClient.Delete(fmt.Sprintf("%s-infra", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil {
-		return nil, err
-	}
-
-	return upgradeLog, nil
+	return upgradeLog, h.cleanup(upgradeLog)
 }
 
 func (h *handler) OnClusterFlowChange(_ string, clusterFlow *loggingv1.ClusterFlow) (*loggingv1.ClusterFlow, error) {
@@ -358,4 +369,20 @@ func (h *handler) OnStatefulSetChange(_ string, statefulSet *appsv1.StatefulSet)
 	}
 
 	return statefulSet, err
+}
+
+func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog) error {
+	logrus.Infof("[%s] Tearing down the logging infrastructure for upgrade procedure", upgradeLogControllerName)
+
+	if err := h.clusterFlowClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-clusterflow", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil {
+		return err
+	}
+	if err := h.clusterOutputClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-clusteroutput", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil {
+		return err
+	}
+	if err := h.loggingClient.Delete(fmt.Sprintf("%s-infra", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil {
+		return err
+	}
+
+	return nil
 }

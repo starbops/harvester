@@ -8,7 +8,9 @@ import (
 var (
 	OperatorDeployed condition.Cond = "OperatorReady"
 	InfraScaffolded  condition.Cond = "InfraReady"
-	UpgradeLogReady  condition.Cond = "Ready"
+	UpgradeLogReady  condition.Cond = "Started"
+	UpgradeEnded     condition.Cond = "Stopped"
+	DownloadReady    condition.Cond = "DownloadReady"
 )
 
 // +genclient

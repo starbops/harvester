@@ -232,6 +232,18 @@ func setUpgradeLogReadyCondition(upgradeLog *harvesterv1.UpgradeLog, status core
 	harvesterv1.UpgradeLogReady.Message(upgradeLog, message)
 }
 
+func setUpgradeEndedCondition(upgradeLog *harvesterv1.UpgradeLog, status corev1.ConditionStatus, reason, message string) {
+	harvesterv1.UpgradeEnded.SetStatus(upgradeLog, string(status))
+	harvesterv1.UpgradeEnded.Reason(upgradeLog, reason)
+	harvesterv1.UpgradeEnded.Message(upgradeLog, message)
+}
+
+func setDownloadReadyCondition(upgradeLog *harvesterv1.UpgradeLog, status corev1.ConditionStatus, reason, message string) {
+	harvesterv1.DownloadReady.SetStatus(upgradeLog, string(status))
+	harvesterv1.DownloadReady.Reason(upgradeLog, reason)
+	harvesterv1.DownloadReady.Message(upgradeLog, message)
+}
+
 type upgradeBuilder struct {
 	upgrade *harvesterv1.Upgrade
 }

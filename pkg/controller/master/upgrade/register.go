@@ -47,6 +47,7 @@ func Register(ctx context.Context, management *config.Management, options config
 		upgradeClient:    upgrades,
 		upgradeCache:     upgrades.Cache(),
 		upgradeLogClient: upgradeLogs,
+		upgradeLogCache:  upgradeLogs.Cache(),
 		versionCache:     versions.Cache(),
 		planClient:       plans,
 		planCache:        plans.Cache(),

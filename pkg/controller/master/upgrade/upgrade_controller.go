@@ -68,6 +68,7 @@ type upgradeHandler struct {
 	upgradeClient    ctlharvesterv1.UpgradeClient
 	upgradeCache     ctlharvesterv1.UpgradeCache
 	upgradeLogClient ctlharvesterv1.UpgradeLogClient
+	upgradeLogCache  ctlharvesterv1.UpgradeLogCache
 	versionCache     ctlharvesterv1.VersionCache
 	planClient       upgradectlv1.PlanClient
 	planCache        upgradectlv1.PlanCache
@@ -368,6 +369,23 @@ func (h *upgradeHandler) cleanup(upgrade *harvesterv1.Upgrade, cleanJobs bool) e
 			return err
 		}
 	}
+
+	// tear down logging infra if any
+	if upgrade.Spec.LogEnabled {
+		upgradeLogName := fmt.Sprintf("%s-upgradelog", upgrade.Name)
+		upgradeLog, err := h.upgradeLogCache.Get(upgradeNamespace, upgradeLogName)
+		if err != nil {
+			return err
+		}
+		upgradeLogToUpdate := upgradeLog.DeepCopy()
+		harvesterv1.UpgradeEnded.SetStatus(upgradeLogToUpdate, string(corev1.ConditionTrue))
+		harvesterv1.UpgradeEnded.Reason(upgradeLogToUpdate, "")
+		harvesterv1.UpgradeEnded.Message(upgradeLogToUpdate, "")
+		if _, err := h.upgradeLogClient.Update(upgradeLogToUpdate); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
