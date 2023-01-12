@@ -71,7 +71,7 @@ func prepareLogging(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Logging {
 				ExtraVolumes: []loggingv1.ExtraVolume{
 					{
 						ContainerName: "fluentd",
-						Path:          "archive",
+						Path:          "/archive",
 						VolumeName:    "log-archive",
 						Volume: &volume.KubernetesVolume{
 							PersistentVolumeClaim: &volume.PersistentVolumeClaim{
