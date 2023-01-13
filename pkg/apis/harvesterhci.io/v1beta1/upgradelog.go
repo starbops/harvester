@@ -33,5 +33,14 @@ type UpgradeLogSpec struct {
 
 type UpgradeLogStatus struct {
 	// +optional
+	Archives map[string]Archive `json:"archives,omitempty"`
+	// +optional
 	Conditions []Condition `json:"conditions,omitempty"`
+}
+
+type Archive struct {
+	// +optional
+	Size int64 `json:"size,omitempty"`
+	// +optional
+	GeneratedTime string `json:"generatedTime,omitempty"`
 }

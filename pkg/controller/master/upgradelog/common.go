@@ -1,6 +1,7 @@
 package upgradelog
 
 import (
+	"errors"
 	"fmt"
 
 	loggingv1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
@@ -8,9 +9,28 @@ import (
 	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/output"
 	"github.com/banzaicloud/operator-tools/pkg/volume"
 	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
+	ctlcorev1 "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+)
+
+const (
+	defaultJobBackoffLimit    int32 = 5
+	defaultDeploymentReplicas int32 = 1
+	logPackagingScript              = `
+#!/usr/bin/env sh
+set -e
+echo "start to package upgrade logs"
+archive_name="$HARVESTER_UPGRADE_LOG_NAME-archive-$TIMESTAMP.tar.gz"
+cd /archive
+tar -zcvf $archive_name logs
+ls -l /archive/$archive_name
+echo "done"
+`
 )
 
 func preparePvc(upgradeLog *harvesterv1.UpgradeLog) *corev1.PersistentVolumeClaim {
@@ -212,6 +232,69 @@ func prepareClusterOutput(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Cluster
 			},
 		},
 	}
+}
+
+func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog) *appsv1.Deployment {
+	replicas := defaultDeploymentReplicas
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				harvesterUpgradeLogLabel: upgradeLog.Name,
+				"app":                    "downloader",
+			},
+			Name:      fmt.Sprintf("%s-log-downloader", upgradeLog.Name),
+			Namespace: upgradeLogNamespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					harvesterUpgradeLogLabel: upgradeLog.Name,
+					"app":                    "downloader",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						harvesterUpgradeLogLabel: upgradeLog.Name,
+						"app":                    "downloader",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "downloader",
+							Image: "nginx",
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "http",
+									ContainerPort: 80,
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "log-archive",
+									MountPath: "/usr/share/nginx/html",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "log-archive",
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: fmt.Sprintf("%s-log-archive", upgradeLog.Name),
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 }
 
 func setOperatorDeployedCondition(upgradeLog *harvesterv1.UpgradeLog, status corev1.ConditionStatus, reason, message string) {
@@ -449,4 +532,107 @@ func (p *pvcBuilder) WithLabel(key, value string) *pvcBuilder {
 
 func (p *pvcBuilder) Build() *corev1.PersistentVolumeClaim {
 	return p.pvc
+}
+
+func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, timestamp string) *batchv1.Job {
+	backoffLimit := defaultJobBackoffLimit
+	return &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				harvesterUpgradeLogLabel: upgradeLog.Name,
+			},
+			Name:      fmt.Sprintf("%s-log-packager", upgradeLog.Name),
+			Namespace: upgradeLogNamespace,
+		},
+		Spec: batchv1.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						harvesterUpgradeLogLabel: upgradeLog.Name,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "log-packager",
+							Image: "busybox",
+							Command: []string{
+								"sh", "-c", logPackagingScript,
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "HARVESTER_UPGRADE_LOG_NAME",
+									Value: upgradeLog.Name,
+								},
+								{
+									Name:  "TIMESTAMP",
+									Value: timestamp,
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "log-archive",
+									MountPath: "/archive",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "log-archive",
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: fmt.Sprintf("%s-log-archive", upgradeLog.Name),
+								},
+							},
+						},
+					},
+					RestartPolicy: corev1.RestartPolicyOnFailure,
+				},
+			},
+			BackoffLimit: &backoffLimit,
+		},
+	}
+}
+
+func SetUpgradeLogArchive(upgradeLog *harvesterv1.UpgradeLog, archiveName string, archiveSize int64, generatedTime string) {
+	if upgradeLog == nil {
+		return
+	}
+	if upgradeLog.Status.Archives == nil {
+		upgradeLog.Status.Archives = make(map[string]harvesterv1.Archive)
+	}
+
+	if current, ok := upgradeLog.Status.Archives[archiveName]; ok &&
+		current.Size == archiveSize && current.GeneratedTime == generatedTime {
+		return
+	}
+	upgradeLog.Status.Archives[archiveName] = harvesterv1.Archive{
+		Size:          archiveSize,
+		GeneratedTime: generatedTime,
+	}
+}
+
+func GetDownloaderPodIP(podCache ctlcorev1.PodCache, upgradeLog *harvesterv1.UpgradeLog) (string, error) {
+	sets := labels.Set{
+		"app":                    "downloader",
+		harvesterUpgradeLogLabel: upgradeLog.Name,
+	}
+
+	pods, err := podCache.List(upgradeLog.Namespace, sets.AsSelector())
+	if err != nil {
+		return "", err
+
+	}
+	if len(pods) == 0 {
+		return "", errors.New("downloader pod is not created")
+	}
+	if len(pods) > 1 {
+		return "", errors.New("more than one downloader pods found")
+	}
+	if pods[0].Status.PodIP == "" {
+		return "", errors.New("downloader pod IP is not allocated")
+	}
+
+	return pods[0].Status.PodIP, nil
 }

@@ -42,6 +42,8 @@ const (
 	upgradeLogClusterOutputAnnotation = "harvesterhci.io/clusterOutput"
 	upgradeLogClusterFlowReady        = "ClusterFlowReady"
 	upgradeLogClusterOutputReady      = "ClusterOutputReady"
+	upgradeLogDownloaderAnnotation    = "harvesterhci.io/downloader"
+	upgradeLogDownloaderReady         = "DownloaderReady"
 )
 
 type handler struct {
@@ -51,6 +53,7 @@ type handler struct {
 	clusterOutputClient ctlloggingv1.ClusterOutputClient
 	daemonSetClient     ctlappsv1.DaemonSetClient
 	daemonSetCache      ctlappsv1.DaemonSetCache
+	deploymentClient    ctlappsv1.DeploymentClient
 	jobClient           ctlbatchv1.JobClient
 	loggingClient       ctlloggingv1.LoggingClient
 	pvcClient           ctlcorev1.PersistentVolumeClaimClient
@@ -188,6 +191,25 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		return h.upgradeLogClient.Update(toUpdate)
 	}
 
+	if harvesterv1.DownloadReady.IsTrue(upgradeLog) {
+		downloaderAnnotation, ok := upgradeLog.Annotations[upgradeLogDownloaderAnnotation]
+		if ok && downloaderAnnotation == upgradeLogDownloaderReady {
+			logrus.Infof("[%s] Log Downloader is ready, skip syncing", upgradeLogControllerName)
+			return upgradeLog, nil
+		} else if !ok {
+			logrus.Infof("[%s] Log archive is ready, create log downloader", upgradeLogControllerName)
+			toUpdate := upgradeLog.DeepCopy()
+			if toUpdate.Annotations == nil {
+				toUpdate.Annotations = make(map[string]string)
+			}
+			toUpdate.Annotations[upgradeLogDownloaderAnnotation] = upgradeLogDownloaderReady
+			if _, err := h.deploymentClient.Create(prepareLogDownloader(upgradeLog)); err != nil && !apierrors.IsAlreadyExists(err) {
+				return nil, err
+			}
+			return h.upgradeLogClient.Update(toUpdate)
+		}
+	}
+
 	return upgradeLog, nil
 }
 
@@ -315,11 +337,33 @@ func (h *handler) OnDaemonSetChange(_ string, daemonSet *appsv1.DaemonSet) (*app
 }
 
 func (h *handler) OnJobChange(_ string, job *batchv1.Job) (*batchv1.Job, error) {
-	if job == nil || job.DeletionTimestamp != nil {
+	if job == nil || job.DeletionTimestamp != nil || job.Labels == nil {
 		return job, nil
 	}
 
 	logrus.Infof("[%s] Processing job %s/%s", jobControllerName, job.Namespace, job.Name)
+
+	upgradeLogName, ok := job.Labels[harvesterUpgradeLogLabel]
+	if !ok {
+		return job, nil
+	}
+	upgradeLog, err := h.upgradeLogCache.Get(upgradeLogNamespace, upgradeLogName)
+	if err != nil {
+		return job, err
+	}
+	logrus.Infof("[%s] Found relevant upgradeLog %s/%s", jobControllerName, upgradeLog.Namespace, upgradeLog.Name)
+
+	toUpdate := upgradeLog.DeepCopy()
+	if job.Status.Succeeded > 0 {
+		setDownloadReadyCondition(toUpdate, corev1.ConditionTrue, "", "")
+
+	} else {
+		setDownloadReadyCondition(toUpdate, corev1.ConditionFalse, "", "")
+	}
+
+	if _, err := h.upgradeLogClient.Update(toUpdate); err != nil {
+		return job, err
+	}
 
 	return job, nil
 }

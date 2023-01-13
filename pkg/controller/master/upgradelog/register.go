@@ -21,6 +21,7 @@ func Register(ctx context.Context, management *config.Management, options config
 	clusterFlowController := management.LoggingFactory.Logging().V1beta1().ClusterFlow()
 	clusterOutputController := management.LoggingFactory.Logging().V1beta1().ClusterOutput()
 	daemonSetController := management.AppsFactory.Apps().V1().DaemonSet()
+	deploymentController := management.AppsFactory.Apps().V1().Deployment()
 	jobController := management.BatchFactory.Batch().V1().Job()
 	loggingController := management.LoggingFactory.Logging().V1beta1().Logging()
 	pvcController := management.CoreFactory.Core().V1().PersistentVolumeClaim()
@@ -34,6 +35,7 @@ func Register(ctx context.Context, management *config.Management, options config
 		clusterOutputClient: clusterOutputController,
 		daemonSetClient:     daemonSetController,
 		daemonSetCache:      daemonSetController.Cache(),
+		deploymentClient:    deploymentController,
 		jobClient:           jobController,
 		loggingClient:       loggingController,
 		pvcClient:           pvcController,
