@@ -22,6 +22,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 const (
@@ -55,6 +56,7 @@ type handler struct {
 	daemonSetCache      ctlappsv1.DaemonSetCache
 	deploymentClient    ctlappsv1.DeploymentClient
 	jobClient           ctlbatchv1.JobClient
+	jobCache            ctlbatchv1.JobCache
 	loggingClient       ctlloggingv1.LoggingClient
 	pvcClient           ctlcorev1.PersistentVolumeClaimClient
 	statefulSetClient   ctlappsv1.StatefulSetClient
@@ -181,7 +183,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 	if harvesterv1.UpgradeEnded.IsTrue(upgradeLog) && harvesterv1.DownloadReady.GetStatus(upgradeLog) == "" {
 		logrus.Infof("[%s] Stop collecting logs", upgradeLogControllerName)
 
-		if err := h.cleanup(upgradeLog); err != nil {
+		if err := h.cleanup(upgradeLog, true); err != nil {
 			return upgradeLog, err
 		}
 
@@ -220,7 +222,7 @@ func (h *handler) OnUpgradeLogRemove(_ string, upgradeLog *harvesterv1.UpgradeLo
 
 	logrus.Infof("[%s] Deleting upgradeLog %s", upgradeLogControllerName, upgradeLog.Name)
 
-	return upgradeLog, h.cleanup(upgradeLog)
+	return upgradeLog, h.cleanup(upgradeLog, false)
 }
 
 func (h *handler) OnClusterFlowChange(_ string, clusterFlow *loggingv1.ClusterFlow) (*loggingv1.ClusterFlow, error) {
@@ -415,7 +417,7 @@ func (h *handler) OnStatefulSetChange(_ string, statefulSet *appsv1.StatefulSet)
 	return statefulSet, err
 }
 
-func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog) error {
+func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog, retainLog bool) error {
 	logrus.Infof("[%s] Tearing down the logging infrastructure for upgrade procedure", upgradeLogControllerName)
 
 	if err := h.clusterFlowClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-clusterflow", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
@@ -427,8 +429,30 @@ func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog) error {
 	if err := h.loggingClient.Delete(fmt.Sprintf("%s-infra", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
-	if err := h.pvcClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-log-archive", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-		return err
+
+	if !retainLog {
+		sets := labels.Set{
+			harvesterUpgradeLogLabel: upgradeLog.Name,
+		}
+		jobs, err := h.jobCache.List(upgradeLogNamespace, sets.AsSelector())
+		if err != nil {
+			return err
+		}
+		for _, job := range jobs {
+			if err := h.jobClient.Delete(job.Namespace, job.Name, &metav1.DeleteOptions{}); err != nil {
+				return err
+			}
+		}
+
+		if harvesterv1.DownloadReady.IsTrue(upgradeLog) {
+			if err := h.deploymentClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-log-downloader", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+				return err
+			}
+		}
+
+		if err := h.pvcClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-log-archive", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
 	}
 
 	return nil

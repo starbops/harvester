@@ -670,8 +670,16 @@ func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, timestamp string) *b
 			Labels: map[string]string{
 				harvesterUpgradeLogLabel: upgradeLog.Name,
 			},
-			Name:      fmt.Sprintf("%s-log-packager", upgradeLog.Name),
-			Namespace: upgradeLogNamespace,
+			GenerateName: fmt.Sprintf("%s-log-packager-", upgradeLog.Name),
+			Namespace:    upgradeLogNamespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					Name:       upgradeLog.Name,
+					Kind:       upgradeLog.Kind,
+					UID:        upgradeLog.UID,
+					APIVersion: upgradeLog.APIVersion,
+				},
+			},
 		},
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{

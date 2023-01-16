@@ -37,6 +37,7 @@ func Register(ctx context.Context, management *config.Management, options config
 		daemonSetCache:      daemonSetController.Cache(),
 		deploymentClient:    deploymentController,
 		jobClient:           jobController,
+		jobCache:            jobController.Cache(),
 		loggingClient:       loggingController,
 		pvcClient:           pvcController,
 		statefulSetClient:   statefulSetController,
