@@ -427,6 +427,9 @@ func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog) error {
 	if err := h.loggingClient.Delete(fmt.Sprintf("%s-infra", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
+	if err := h.pvcClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-log-archive", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
 
 	return nil
 }
