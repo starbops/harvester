@@ -26,7 +26,7 @@ func (c ClusterOutputClient) UpdateStatus(clusterOutput *loggingv1.ClusterOutput
 	panic("implement me")
 }
 func (c ClusterOutputClient) Delete(namespace, name string, options *metav1.DeleteOptions) error {
-	panic("implement me")
+	return c().Delete(context.TODO(), name, metav1.DeleteOptions{})
 }
 func (c ClusterOutputClient) Get(namespace, name string, options metav1.GetOptions) (*loggingv1.ClusterOutput, error) {
 	return c().Get(context.TODO(), name, metav1.GetOptions{})

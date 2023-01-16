@@ -25,10 +25,10 @@ func (c LoggingClient) UpdateStatus(logging *loggingv1.Logging) (*loggingv1.Logg
 	panic("implement me")
 }
 func (c LoggingClient) Delete(name string, options *metav1.DeleteOptions) error {
-	panic("implement me")
+	return c().Delete(context.TODO(), name, metav1.DeleteOptions{})
 }
 func (c LoggingClient) Get(name string, options metav1.GetOptions) (*loggingv1.Logging, error) {
-	panic("implement me")
+	return c().Get(context.TODO(), name, metav1.GetOptions{})
 }
 func (c LoggingClient) List(opts metav1.ListOptions) (*loggingv1.LoggingList, error) {
 	panic("implement me")

@@ -26,7 +26,7 @@ func (c ClusterFlowClient) UpdateStatus(clusterFlow *loggingv1.ClusterFlow) (*lo
 	panic("implement me")
 }
 func (c ClusterFlowClient) Delete(namespace, name string, options *metav1.DeleteOptions) error {
-	panic("implement me")
+	return c().Delete(context.TODO(), name, metav1.DeleteOptions{})
 }
 func (c ClusterFlowClient) Get(namespace, name string, options metav1.GetOptions) (*loggingv1.ClusterFlow, error) {
 	return c().Get(context.TODO(), name, metav1.GetOptions{})

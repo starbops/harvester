@@ -416,6 +416,16 @@ func (p *upgradeLogBuilder) UpgradeLogReadyCondition(status corev1.ConditionStat
 	return p
 }
 
+func (p *upgradeLogBuilder) UpgradeEndedCondition(status corev1.ConditionStatus, reason, message string) *upgradeLogBuilder {
+	setUpgradeEndedCondition(p.upgradeLog, status, reason, message)
+	return p
+}
+
+func (p *upgradeLogBuilder) DownloadReadyCondition(status corev1.ConditionStatus, reason, message string) *upgradeLogBuilder {
+	setDownloadReadyCondition(p.upgradeLog, status, reason, message)
+	return p
+}
+
 type clusterFlowBuilder struct {
 	clusterFlow *loggingv1.ClusterFlow
 }
@@ -441,6 +451,12 @@ func (p *clusterFlowBuilder) WithLabel(key, value string) *clusterFlowBuilder {
 
 func (p *clusterFlowBuilder) Namespace(namespace string) *clusterFlowBuilder {
 	p.clusterFlow.Namespace = namespace
+	return p
+}
+
+func (p *clusterFlowBuilder) Active() *clusterFlowBuilder {
+	active := true
+	p.clusterFlow.Status.Active = &active
 	return p
 }
 
@@ -476,8 +492,85 @@ func (p *clusterOutputBuilder) Namespace(namespace string) *clusterOutputBuilder
 	return p
 }
 
+func (p *clusterOutputBuilder) Active() *clusterOutputBuilder {
+	active := true
+	p.clusterOutput.Status.Active = &active
+	return p
+}
+
 func (p *clusterOutputBuilder) Build() *loggingv1.ClusterOutput {
 	return p.clusterOutput
+}
+
+type daemonSetBuilder struct {
+	daemonSet *appsv1.DaemonSet
+}
+
+func newDaemonSetBuilder(name string) *daemonSetBuilder {
+	return &daemonSetBuilder{
+		daemonSet: &appsv1.DaemonSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: upgradeLogNamespace,
+			},
+		},
+	}
+}
+
+func (p *daemonSetBuilder) WithLabel(key, value string) *daemonSetBuilder {
+	if p.daemonSet.Labels == nil {
+		p.daemonSet.Labels = make(map[string]string)
+	}
+	p.daemonSet.Labels[key] = value
+	return p
+}
+
+func (p *daemonSetBuilder) NotReady() *daemonSetBuilder {
+	p.daemonSet.Status.DesiredNumberScheduled = 3
+	p.daemonSet.Status.NumberReady = 1
+	return p
+}
+
+func (p *daemonSetBuilder) Ready() *daemonSetBuilder {
+	p.daemonSet.Status.DesiredNumberScheduled = 3
+	p.daemonSet.Status.NumberReady = 3
+	return p
+}
+
+func (p *daemonSetBuilder) Build() *appsv1.DaemonSet {
+	return p.daemonSet
+}
+
+type jobBuilder struct {
+	job *batchv1.Job
+}
+
+func newJobBuilder(name string) *jobBuilder {
+	return &jobBuilder{
+		job: &batchv1.Job{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: upgradeLogNamespace,
+			},
+		},
+	}
+}
+
+func (p *jobBuilder) WithLabel(key, value string) *jobBuilder {
+	if p.job.Labels == nil {
+		p.job.Labels = make(map[string]string)
+	}
+	p.job.Labels[key] = value
+	return p
+}
+
+func (p *jobBuilder) Done() *jobBuilder {
+	p.job.Status.Succeeded = 1
+	return p
+}
+
+func (p *jobBuilder) Build() *batchv1.Job {
+	return p.job
 }
 
 type loggingBuilder struct {
@@ -488,8 +581,7 @@ func newLoggingBuilder(name string) *loggingBuilder {
 	return &loggingBuilder{
 		logging: &loggingv1.Logging{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: upgradeLogNamespace,
+				Name: name,
 			},
 		},
 	}
@@ -532,6 +624,43 @@ func (p *pvcBuilder) WithLabel(key, value string) *pvcBuilder {
 
 func (p *pvcBuilder) Build() *corev1.PersistentVolumeClaim {
 	return p.pvc
+}
+
+type statefulSetBuilder struct {
+	statefulSet *appsv1.StatefulSet
+}
+
+func newStatefulSetBuilder(name string) *statefulSetBuilder {
+	return &statefulSetBuilder{
+		statefulSet: &appsv1.StatefulSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: upgradeLogNamespace,
+			},
+		},
+	}
+}
+
+func (p *statefulSetBuilder) WithLabel(key, value string) *statefulSetBuilder {
+	if p.statefulSet.Labels == nil {
+		p.statefulSet.Labels = make(map[string]string)
+	}
+	p.statefulSet.Labels[key] = value
+	return p
+}
+
+func (p *statefulSetBuilder) Replicas(replicas int32) *statefulSetBuilder {
+	p.statefulSet.Spec.Replicas = &replicas
+	return p
+}
+
+func (p *statefulSetBuilder) ReadyReplicas(replicas int32) *statefulSetBuilder {
+	p.statefulSet.Status.ReadyReplicas = replicas
+	return p
+}
+
+func (p *statefulSetBuilder) Build() *appsv1.StatefulSet {
+	return p.statefulSet
 }
 
 func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, timestamp string) *batchv1.Job {

@@ -244,6 +244,9 @@ func (h *handler) OnClusterFlowChange(_ string, clusterFlow *loggingv1.ClusterFl
 		return clusterFlow, nil
 	} else if *clusterFlow.Status.Active {
 		logrus.Infof("[%s] clusterFlow %s/%s is now active", clusterFlowControllerName, clusterFlow.Namespace, clusterFlow.Name)
+		if toUpdate.Annotations == nil {
+			toUpdate.Annotations = make(map[string]string)
+		}
 		toUpdate.Annotations[upgradeLogClusterFlowAnnotation] = upgradeLogClusterFlowReady
 	}
 
@@ -277,6 +280,9 @@ func (h *handler) OnClusterOutputChange(_ string, clusterOutput *loggingv1.Clust
 		return clusterOutput, nil
 	} else if *clusterOutput.Status.Active {
 		logrus.Infof("[%s] clusterOutput %s/%s is now active", clusterOutputControllerName, clusterOutput.Namespace, clusterOutput.Name)
+		if toUpdate.Annotations == nil {
+			toUpdate.Annotations = make(map[string]string)
+		}
 		toUpdate.Annotations[upgradeLogClusterOutputAnnotation] = upgradeLogClusterOutputReady
 	}
 
@@ -317,10 +323,7 @@ func (h *handler) OnDaemonSetChange(_ string, daemonSet *appsv1.DaemonSet) (*app
 
 	toUpdate := upgradeLog.DeepCopy()
 
-	if daemonSet.Status.NumberReady != daemonSet.Status.DesiredNumberScheduled {
-		setInfraScaffoldedCondition(toUpdate, corev1.ConditionFalse, "FluentBitNotReady", "")
-	} else {
-		setInfraScaffoldedCondition(toUpdate, corev1.ConditionTrue, "FluentBitReady", "")
+	if daemonSet.Status.NumberReady == daemonSet.Status.DesiredNumberScheduled {
 		if toUpdate.Annotations == nil {
 			toUpdate.Annotations = make(map[string]string)
 		}
@@ -396,10 +399,7 @@ func (h *handler) OnStatefulSetChange(_ string, statefulSet *appsv1.StatefulSet)
 
 	toUpdate := upgradeLog.DeepCopy()
 
-	if statefulSet.Status.ReadyReplicas != *statefulSet.Spec.Replicas {
-		setInfraScaffoldedCondition(toUpdate, corev1.ConditionFalse, "FluentdNotReady", "")
-	} else {
-		setInfraScaffoldedCondition(toUpdate, corev1.ConditionTrue, "FluentdReady", "")
+	if statefulSet.Status.ReadyReplicas == *statefulSet.Spec.Replicas {
 		if toUpdate.Annotations == nil {
 			toUpdate.Annotations = make(map[string]string)
 		}
@@ -418,13 +418,13 @@ func (h *handler) OnStatefulSetChange(_ string, statefulSet *appsv1.StatefulSet)
 func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog) error {
 	logrus.Infof("[%s] Tearing down the logging infrastructure for upgrade procedure", upgradeLogControllerName)
 
-	if err := h.clusterFlowClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-clusterflow", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil {
+	if err := h.clusterFlowClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-clusterflow", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
-	if err := h.clusterOutputClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-clusteroutput", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil {
+	if err := h.clusterOutputClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-clusteroutput", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
-	if err := h.loggingClient.Delete(fmt.Sprintf("%s-infra", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil {
+	if err := h.loggingClient.Delete(fmt.Sprintf("%s-infra", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 
