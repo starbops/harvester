@@ -458,7 +458,8 @@ func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog, retainLog bool) er
 			return err
 		}
 		for _, job := range jobs {
-			if err := h.jobClient.Delete(job.Namespace, job.Name, &metav1.DeleteOptions{}); err != nil {
+			deletePropagation := metav1.DeletePropagationBackground
+			if err := h.jobClient.Delete(job.Namespace, job.Name, &metav1.DeleteOptions{PropagationPolicy: &deletePropagation}); err != nil {
 				return err
 			}
 		}
