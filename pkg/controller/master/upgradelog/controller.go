@@ -180,7 +180,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		return h.upgradeLogClient.Update(toUpdate)
 	}
 
-	if harvesterv1.UpgradeEnded.IsTrue(upgradeLog) && harvesterv1.DownloadReady.GetStatus(upgradeLog) == "" {
+	if harvesterv1.UpgradeEnded.IsTrue(upgradeLog) {
 		logrus.Infof("[%s] Stop collecting logs", upgradeLogControllerName)
 
 		if err := h.cleanup(upgradeLog, true); err != nil {
@@ -188,12 +188,31 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		}
 
 		toUpdate := upgradeLog.DeepCopy()
-		harvesterv1.DownloadReady.CreateUnknownIfNotExists(toUpdate)
-
-		return h.upgradeLogClient.Update(toUpdate)
+		if harvesterv1.DownloadReady.GetStatus(upgradeLog) == "" {
+			harvesterv1.DownloadReady.CreateUnknownIfNotExists(toUpdate)
+			return h.upgradeLogClient.Update(toUpdate)
+		} else if harvesterv1.DownloadReady.IsTrue(upgradeLog) {
+			downloaderAnnotation, ok := upgradeLog.Annotations[upgradeLogDownloaderAnnotation]
+			if ok && downloaderAnnotation == upgradeLogDownloaderReady {
+				logrus.Infof("[%s] Log Downloader is ready, skip syncing", upgradeLogControllerName)
+				return upgradeLog, nil
+			} else if !ok {
+				logrus.Infof("[%s] Log archive is ready, create log downloader", upgradeLogControllerName)
+				if toUpdate.Annotations == nil {
+					toUpdate.Annotations = make(map[string]string)
+				}
+				toUpdate.Annotations[upgradeLogDownloaderAnnotation] = upgradeLogDownloaderReady
+				if _, err := h.deploymentClient.Create(prepareLogDownloader(upgradeLog)); err != nil && !apierrors.IsAlreadyExists(err) {
+					return nil, err
+				}
+				return h.upgradeLogClient.Update(toUpdate)
+			}
+		} else {
+			return upgradeLog, nil
+		}
 	}
 
-	if harvesterv1.DownloadReady.IsTrue(upgradeLog) {
+	if harvesterv1.UpgradeEnded.IsUnknown(upgradeLog) && harvesterv1.DownloadReady.IsTrue(upgradeLog) {
 		downloaderAnnotation, ok := upgradeLog.Annotations[upgradeLogDownloaderAnnotation]
 		if ok && downloaderAnnotation == upgradeLogDownloaderReady {
 			logrus.Infof("[%s] Log Downloader is ready, skip syncing", upgradeLogControllerName)
