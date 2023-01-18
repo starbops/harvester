@@ -121,5 +121,5 @@ func (h *DownloadHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		util.ResponseError(rw, http.StatusNotAcceptable, errors.New("log archive is not ready"))
 		return
 	}
-	util.ResponseOK(rw)
+	// util.ResponseOK(rw)
 }
