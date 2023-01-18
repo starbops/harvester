@@ -384,8 +384,11 @@ func (h *upgradeHandler) cleanup(upgrade *harvesterv1.Upgrade, cleanJobs bool) e
 		harvesterv1.UpgradeEnded.SetStatus(upgradeLogToUpdate, string(corev1.ConditionTrue))
 		harvesterv1.UpgradeEnded.Reason(upgradeLogToUpdate, "")
 		harvesterv1.UpgradeEnded.Message(upgradeLogToUpdate, "")
-		if _, err := h.upgradeLogClient.Update(upgradeLogToUpdate); err != nil {
-			return err
+		if !reflect.DeepEqual(upgradeLogToUpdate, upgradeLog) {
+			logrus.Infof("Update upgradeLog %s/%s", upgradeLog.Namespace, upgradeLog.Name)
+			if _, err := h.upgradeLogClient.Update(upgradeLogToUpdate); err != nil {
+				return err
+			}
 		}
 	}
 
