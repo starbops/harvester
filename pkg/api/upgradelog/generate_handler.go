@@ -66,7 +66,15 @@ func (h *GenerateHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		archiveName := fmt.Sprintf("%s-archive-%s", upgradeLog.Name, generatedTime)
 		// TODO: update with the real size later
 		archiveSize := int64(0)
-		if _, err := h.jobClient.Create(ctlupgradelog.PrepareLogPackager(upgradeLog, generatedTime)); err != nil {
+
+		var component string
+		if harvesterv1.UpgradeEnded.IsTrue(upgradeLog) {
+			component = ctlupgradelog.DownloaderComponent
+		} else {
+			component = ctlupgradelog.AggregatorComponent
+		}
+
+		if _, err := h.jobClient.Create(ctlupgradelog.PrepareLogPackager(upgradeLog, generatedTime, component)); err != nil {
 			util.ResponseError(rw, http.StatusInternalServerError, errors.Wrap(err, "fail to create log packager job"))
 			return
 		}

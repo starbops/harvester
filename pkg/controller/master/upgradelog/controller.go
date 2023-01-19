@@ -27,6 +27,11 @@ import (
 
 const (
 	harvesterUpgradeLogLabel            = "harvesterhci.io/upgradeLog"
+	harvesterUpgradeLogComponentLabel   = "harvesterhci.io/upgradeLogComponent"
+	AggregatorComponent                 = "aggregator"
+	ShipperComponent                    = "shipper"
+	PackagerComponent                   = "packager"
+	DownloaderComponent                 = "downloader"
 	harvesterUpgradeLogStorageClassName = "harvester-longhorn"
 	harvesterUpgradeLogVolumeMode       = corev1.PersistentVolumeFilesystem
 	upgradeLogNamespace                 = "harvester-system"

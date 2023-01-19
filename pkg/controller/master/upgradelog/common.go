@@ -73,7 +73,8 @@ func prepareLogging(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Logging {
 			FlowConfigCheckDisabled: true,
 			FluentbitSpec: &loggingv1.FluentbitSpec{
 				Labels: map[string]string{
-					harvesterUpgradeLogLabel: upgradeLog.Name,
+					harvesterUpgradeLogLabel:          upgradeLog.Name,
+					harvesterUpgradeLogComponentLabel: ShipperComponent,
 				},
 				Tolerations: []corev1.Toleration{
 					{
@@ -85,7 +86,8 @@ func prepareLogging(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Logging {
 			},
 			FluentdSpec: &loggingv1.FluentdSpec{
 				Labels: map[string]string{
-					harvesterUpgradeLogLabel: upgradeLog.Name,
+					harvesterUpgradeLogLabel:          upgradeLog.Name,
+					harvesterUpgradeLogComponentLabel: AggregatorComponent,
 				},
 				DisablePvc: true,
 				ExtraVolumes: []loggingv1.ExtraVolume{
@@ -239,8 +241,8 @@ func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog) *appsv1.Deployment
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				harvesterUpgradeLogLabel: upgradeLog.Name,
-				"app":                    "downloader",
+				harvesterUpgradeLogLabel:          upgradeLog.Name,
+				harvesterUpgradeLogComponentLabel: DownloaderComponent,
 			},
 			Name:      fmt.Sprintf("%s-log-downloader", upgradeLog.Name),
 			Namespace: upgradeLogNamespace,
@@ -249,15 +251,17 @@ func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog) *appsv1.Deployment
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					harvesterUpgradeLogLabel: upgradeLog.Name,
-					"app":                    "downloader",
+					harvesterUpgradeLogLabel:          upgradeLog.Name,
+					harvesterUpgradeLogComponentLabel: DownloaderComponent,
+					"app":                             "downloader",
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						harvesterUpgradeLogLabel: upgradeLog.Name,
-						"app":                    "downloader",
+						harvesterUpgradeLogLabel:          upgradeLog.Name,
+						harvesterUpgradeLogComponentLabel: DownloaderComponent,
+						"app":                             "downloader",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -663,12 +667,13 @@ func (p *statefulSetBuilder) Build() *appsv1.StatefulSet {
 	return p.statefulSet
 }
 
-func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, timestamp string) *batchv1.Job {
+func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, timestamp, component string) *batchv1.Job {
 	backoffLimit := defaultJobBackoffLimit
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				harvesterUpgradeLogLabel: upgradeLog.Name,
+				harvesterUpgradeLogLabel:          upgradeLog.Name,
+				harvesterUpgradeLogComponentLabel: PackagerComponent,
 			},
 			GenerateName: fmt.Sprintf("%s-log-packager-", upgradeLog.Name),
 			Namespace:    upgradeLogNamespace,
@@ -685,10 +690,29 @@ func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, timestamp string) *b
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						harvesterUpgradeLogLabel: upgradeLog.Name,
+						harvesterUpgradeLogLabel:          upgradeLog.Name,
+						harvesterUpgradeLogComponentLabel: PackagerComponent,
 					},
 				},
 				Spec: corev1.PodSpec{
+					Affinity: &corev1.Affinity{
+						PodAffinity: &corev1.PodAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+								{
+									LabelSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											harvesterUpgradeLogLabel:          upgradeLog.Name,
+											harvesterUpgradeLogComponentLabel: component,
+										},
+									},
+									Namespaces: []string{
+										upgradeLogNamespace,
+									},
+									TopologyKey: "kubernetes.io/hostname",
+								},
+							},
+						},
+					},
 					Containers: []corev1.Container{
 						{
 							Name:  "log-packager",
