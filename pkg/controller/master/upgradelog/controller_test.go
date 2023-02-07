@@ -540,10 +540,32 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 					WithLabel(upgradeStateLabel, UpgradeStateLoggingInfraPrepared).
 					LogReadyCondition(corev1.ConditionTrue, "", "").Build(),
 				upgradeLog: newTestUpgradeLogBuilder().
+					WithAnnotation(upgradeLogStateAnnotation, upgradeLogStateCollecting).
 					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
 					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").
 					UpgradeEndedCondition(corev1.ConditionUnknown, "", "").Build(),
+			},
+		},
+		{
+			name: "The logging infra is ready and the upgrade is resumed, should therefore create the downloader deployment",
+			given: input{
+				key:     testUpgradeLogName,
+				upgrade: newTestUpgradeBuilder().Build(),
+				upgradeLog: newTestUpgradeLogBuilder().
+					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
+					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
+					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").
+					UpgradeEndedCondition(corev1.ConditionUnknown, "", "").Build(),
+			},
+			expected: output{
+				deployment: prepareLogDownloader(newTestUpgradeLogBuilder().Build()),
+				upgradeLog: newTestUpgradeLogBuilder().
+					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
+					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
+					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").
+					UpgradeEndedCondition(corev1.ConditionUnknown, "", "").
+					DownloadReadyCondition(corev1.ConditionUnknown, "", "").Build(),
 			},
 		},
 		{
@@ -555,26 +577,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 				logging:       newTestLoggingBuilder().Build(),
 				pvc:           preparePvc(newTestUpgradeLogBuilder().Build()),
 				upgradeLog: newTestUpgradeLogBuilder().
-					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
-					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").
-					UpgradeEndedCondition(corev1.ConditionTrue, "", "").Build(),
-			},
-			expected: output{
-				pvc: preparePvc(newTestUpgradeLogBuilder().Build()),
-				upgradeLog: newTestUpgradeLogBuilder().
-					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
-					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").
-					UpgradeEndedCondition(corev1.ConditionTrue, "", "").
-					DownloadReadyCondition(corev1.ConditionUnknown, "", "").Build(),
-			},
-		},
-		{
-			name: "The DownloadReady condition is ready, should therefore create the downloader deployment",
-			given: input{
-				key: testUpgradeLogName,
-				upgradeLog: newTestUpgradeLogBuilder().
+					WithAnnotation(upgradeLogStateAnnotation, upgradeLogStateCollecting).
 					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
 					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").
@@ -582,9 +585,9 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 					DownloadReadyCondition(corev1.ConditionTrue, "", "").Build(),
 			},
 			expected: output{
-				deployment: prepareLogDownloader(newTestUpgradeLogBuilder().Build()),
+				pvc: preparePvc(newTestUpgradeLogBuilder().Build()),
 				upgradeLog: newTestUpgradeLogBuilder().
-					WithAnnotation(upgradeLogDownloaderAnnotation, upgradeLogDownloaderReady).
+					WithAnnotation(upgradeLogStateAnnotation, upgradeLogStateStopped).
 					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
 					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").

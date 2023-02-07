@@ -48,8 +48,9 @@ const (
 	upgradeLogClusterOutputAnnotation = "harvesterhci.io/clusterOutput"
 	upgradeLogClusterFlowReady        = "ClusterFlowReady"
 	upgradeLogClusterOutputReady      = "ClusterOutputReady"
-	upgradeLogDownloaderAnnotation    = "harvesterhci.io/downloader"
-	upgradeLogDownloaderReady         = "DownloaderReady"
+	upgradeLogStateAnnotation         = "harvesterhci.io/upgradeLogState"
+	upgradeLogStateCollecting         = "Collecting"
+	upgradeLogStateStopped            = "Stopped"
 	archiveNameAnnotation             = "harvesterhci.io/archiveName"
 )
 
@@ -181,7 +182,24 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 
 		// handle upgradeLog resource
 		toUpdate := upgradeLog.DeepCopy()
+		if toUpdate.Annotations == nil {
+			toUpdate.Annotations = make(map[string]string)
+		}
+		toUpdate.Annotations[upgradeLogStateAnnotation] = upgradeLogStateCollecting
 		harvesterv1.UpgradeEnded.CreateUnknownIfNotExists(toUpdate)
+
+		return h.upgradeLogClient.Update(toUpdate)
+	}
+
+	if harvesterv1.UpgradeEnded.IsUnknown(upgradeLog) && harvesterv1.DownloadReady.GetStatus(upgradeLog) == "" {
+		logrus.Infof("[%s] Spin up downloader", upgradeLogControllerName)
+
+		if _, err := h.deploymentClient.Create(prepareLogDownloader(upgradeLog)); err != nil && !apierrors.IsAlreadyExists(err) {
+			return nil, err
+		}
+
+		toUpdate := upgradeLog.DeepCopy()
+		harvesterv1.DownloadReady.CreateUnknownIfNotExists(toUpdate)
 
 		return h.upgradeLogClient.Update(toUpdate)
 	}
@@ -189,52 +207,19 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 	if harvesterv1.UpgradeEnded.IsTrue(upgradeLog) {
 		logrus.Infof("[%s] Stop collecting logs", upgradeLogControllerName)
 
-		if err := h.cleanup(upgradeLog, true); err != nil {
-			return upgradeLog, err
+		upgradeLogState, ok := upgradeLog.Annotations[upgradeLogStateAnnotation]
+		if !ok {
+			return upgradeLog, nil
 		}
-
-		toUpdate := upgradeLog.DeepCopy()
-		if harvesterv1.DownloadReady.GetStatus(upgradeLog) == "" {
-			harvesterv1.DownloadReady.CreateUnknownIfNotExists(toUpdate)
-			return h.upgradeLogClient.Update(toUpdate)
-		} else if harvesterv1.DownloadReady.IsTrue(upgradeLog) {
-			downloaderAnnotation, ok := upgradeLog.Annotations[upgradeLogDownloaderAnnotation]
-			if ok && downloaderAnnotation == upgradeLogDownloaderReady {
-				logrus.Infof("[%s] Log Downloader is ready, skip syncing", upgradeLogControllerName)
-				return upgradeLog, nil
-			} else if !ok {
-				logrus.Infof("[%s] Log archive is ready, create log downloader", upgradeLogControllerName)
-				if toUpdate.Annotations == nil {
-					toUpdate.Annotations = make(map[string]string)
-				}
-				toUpdate.Annotations[upgradeLogDownloaderAnnotation] = upgradeLogDownloaderReady
-				if _, err := h.deploymentClient.Create(prepareLogDownloader(upgradeLog)); err != nil && !apierrors.IsAlreadyExists(err) {
-					return nil, err
-				}
-				return h.upgradeLogClient.Update(toUpdate)
+		if upgradeLogState == upgradeLogStateCollecting {
+			if err := h.cleanup(upgradeLog, true); err != nil {
+				return upgradeLog, err
 			}
-		} else {
-			return upgradeLog, nil
-		}
-	}
-
-	if harvesterv1.UpgradeEnded.IsUnknown(upgradeLog) && harvesterv1.DownloadReady.IsTrue(upgradeLog) {
-		downloaderAnnotation, ok := upgradeLog.Annotations[upgradeLogDownloaderAnnotation]
-		if ok && downloaderAnnotation == upgradeLogDownloaderReady {
-			logrus.Infof("[%s] Log Downloader is ready, skip syncing", upgradeLogControllerName)
-			return upgradeLog, nil
-		} else if !ok {
-			logrus.Infof("[%s] Log archive is ready, create log downloader", upgradeLogControllerName)
 			toUpdate := upgradeLog.DeepCopy()
-			if toUpdate.Annotations == nil {
-				toUpdate.Annotations = make(map[string]string)
-			}
-			toUpdate.Annotations[upgradeLogDownloaderAnnotation] = upgradeLogDownloaderReady
-			if _, err := h.deploymentClient.Create(prepareLogDownloader(upgradeLog)); err != nil && !apierrors.IsAlreadyExists(err) {
-				return nil, err
-			}
+			toUpdate.Annotations[upgradeLogStateAnnotation] = upgradeLogStateStopped
 			return h.upgradeLogClient.Update(toUpdate)
 		}
+		return upgradeLog, nil
 	}
 
 	return upgradeLog, nil
