@@ -74,12 +74,12 @@ func (h *GenerateHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 			component = ctlupgradelog.AggregatorComponent
 		}
 
-		if _, err := h.jobClient.Create(ctlupgradelog.PrepareLogPackager(upgradeLog, generatedTime, component)); err != nil {
+		if _, err := h.jobClient.Create(ctlupgradelog.PrepareLogPackager(upgradeLog, archiveName, component)); err != nil {
 			util.ResponseError(rw, http.StatusInternalServerError, errors.Wrap(err, "fail to create log packager job"))
 			return
 		}
 		toUpdate := upgradeLog.DeepCopy()
-		ctlupgradelog.SetUpgradeLogArchive(toUpdate, archiveName, archiveSize, generatedTime)
+		ctlupgradelog.SetUpgradeLogArchive(toUpdate, archiveName, archiveSize, generatedTime, false)
 		if _, err := h.upgradeLogClient.Update(toUpdate); err != nil {
 			util.ResponseError(rw, http.StatusInternalServerError, errors.Wrap(err, "fail to update upgradelog resource"))
 			return

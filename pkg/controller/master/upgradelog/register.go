@@ -11,6 +11,7 @@ const (
 	clusterFlowControllerName   = "harvester-upgradelog-clusterflow-controller"
 	clusterOutputControllerName = "harvester-upgradelog-clusteroutput-controller"
 	daemonSetControllerName     = "harvester-upgradelog-daemonset-controller"
+	deploymentControllerName    = "harvester-upgradelog-deployment-controller"
 	jobControllerName           = "harvester-upgradelog-job-controller"
 	loggingControllerName       = "harvester-upgradelog-logging-controller"
 	statefulSetControllerName   = "harvester-upgradelog-statefulset-controller"
@@ -53,6 +54,7 @@ func Register(ctx context.Context, management *config.Management, options config
 	clusterFlowController.OnChange(ctx, clusterFlowControllerName, handler.OnClusterFlowChange)
 	clusterOutputController.OnChange(ctx, clusterOutputControllerName, handler.OnClusterOutputChange)
 	daemonSetController.OnChange(ctx, daemonSetControllerName, handler.OnDaemonSetChange)
+	deploymentController.OnChange(ctx, deploymentControllerName, handler.OnDeploymentChange)
 	jobController.OnChange(ctx, jobControllerName, handler.OnJobChange)
 	statefulSetController.OnChange(ctx, statefulSetControllerName, handler.OnStatefulSetChange)
 

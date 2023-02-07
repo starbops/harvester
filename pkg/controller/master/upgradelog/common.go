@@ -25,10 +25,10 @@ const (
 #!/usr/bin/env sh
 set -e
 echo "start to package upgrade logs"
-archive_name="$HARVESTER_UPGRADE_LOG_NAME-archive-$TIMESTAMP.tar.gz"
+archive="$ARCHIVE_NAME.tar.gz"
 cd /archive
-tar -zcvf $archive_name logs
-ls -l /archive/$archive_name
+tar -zcvf $archive logs
+ls -l /archive/$archive
 echo "done"
 `
 )
@@ -331,6 +331,16 @@ func setDownloadReadyCondition(upgradeLog *harvesterv1.UpgradeLog, status corev1
 	harvesterv1.DownloadReady.Message(upgradeLog, message)
 }
 
+func setUpgradeLogArchiveReady(upgradeLog *harvesterv1.UpgradeLog, archiveName string, ready bool) error {
+	if archive, ok := upgradeLog.Status.Archives[archiveName]; ok {
+		archive.Ready = ready
+		upgradeLog.Status.Archives[archiveName] = archive
+		return nil
+	} else {
+		return fmt.Errorf("archive %s of %s not found", archiveName, upgradeLog.Name)
+	}
+}
+
 type upgradeBuilder struct {
 	upgrade *harvesterv1.Upgrade
 }
@@ -403,6 +413,11 @@ func (p *upgradeLogBuilder) Upgrade(value string) *upgradeLogBuilder {
 
 func (p *upgradeLogBuilder) Build() *harvesterv1.UpgradeLog {
 	return p.upgradeLog
+}
+
+func (p *upgradeLogBuilder) Archive(name string, size int64, time string, ready bool) *upgradeLogBuilder {
+	SetUpgradeLogArchive(p.upgradeLog, name, size, time, ready)
+	return p
 }
 
 func (p *upgradeLogBuilder) OperatorDeployedCondition(status corev1.ConditionStatus, reason, message string) *upgradeLogBuilder {
@@ -568,6 +583,14 @@ func (p *jobBuilder) WithLabel(key, value string) *jobBuilder {
 	return p
 }
 
+func (p *jobBuilder) WithAnnotation(key, value string) *jobBuilder {
+	if p.job.Annotations == nil {
+		p.job.Annotations = make(map[string]string)
+	}
+	p.job.Annotations[key] = value
+	return p
+}
+
 func (p *jobBuilder) Done() *jobBuilder {
 	p.job.Status.Succeeded = 1
 	return p
@@ -667,10 +690,13 @@ func (p *statefulSetBuilder) Build() *appsv1.StatefulSet {
 	return p.statefulSet
 }
 
-func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, timestamp, component string) *batchv1.Job {
+func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, archiveName, component string) *batchv1.Job {
 	backoffLimit := defaultJobBackoffLimit
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				archiveNameAnnotation: archiveName,
+			},
 			Labels: map[string]string{
 				harvesterUpgradeLogLabel:          upgradeLog.Name,
 				harvesterUpgradeLogComponentLabel: PackagerComponent,
@@ -722,12 +748,8 @@ func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, timestamp, component
 							},
 							Env: []corev1.EnvVar{
 								{
-									Name:  "HARVESTER_UPGRADE_LOG_NAME",
-									Value: upgradeLog.Name,
-								},
-								{
-									Name:  "TIMESTAMP",
-									Value: timestamp,
+									Name:  "ARCHIVE_NAME",
+									Value: archiveName,
 								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
@@ -756,7 +778,7 @@ func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, timestamp, component
 	}
 }
 
-func SetUpgradeLogArchive(upgradeLog *harvesterv1.UpgradeLog, archiveName string, archiveSize int64, generatedTime string) {
+func SetUpgradeLogArchive(upgradeLog *harvesterv1.UpgradeLog, archiveName string, archiveSize int64, generatedTime string, ready bool) {
 	if upgradeLog == nil {
 		return
 	}
@@ -765,12 +787,13 @@ func SetUpgradeLogArchive(upgradeLog *harvesterv1.UpgradeLog, archiveName string
 	}
 
 	if current, ok := upgradeLog.Status.Archives[archiveName]; ok &&
-		current.Size == archiveSize && current.GeneratedTime == generatedTime {
+		current.Size == archiveSize && current.GeneratedTime == generatedTime && current.Ready == ready {
 		return
 	}
 	upgradeLog.Status.Archives[archiveName] = harvesterv1.Archive{
 		Size:          archiveSize,
 		GeneratedTime: generatedTime,
+		Ready:         ready,
 	}
 }
 

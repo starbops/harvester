@@ -50,6 +50,7 @@ const (
 	upgradeLogClusterOutputReady      = "ClusterOutputReady"
 	upgradeLogDownloaderAnnotation    = "harvesterhci.io/downloader"
 	upgradeLogDownloaderReady         = "DownloaderReady"
+	archiveNameAnnotation             = "harvesterhci.io/archiveName"
 )
 
 type handler struct {
@@ -365,6 +366,42 @@ func (h *handler) OnDaemonSetChange(_ string, daemonSet *appsv1.DaemonSet) (*app
 	return daemonSet, nil
 }
 
+func (h *handler) OnDeploymentChange(_ string, deployment *appsv1.Deployment) (*appsv1.Deployment, error) {
+	if deployment == nil || deployment.DeletionTimestamp != nil || deployment.Labels == nil || deployment.Namespace != upgradeLogNamespace {
+		return deployment, nil
+	}
+
+	logrus.Infof("[%s] Processing deployment %s/%s", deploymentControllerName, deployment.Namespace, deployment.Name)
+
+	upgradeLogName, ok := deployment.Labels[harvesterUpgradeLogLabel]
+	if !ok {
+		return deployment, nil
+	}
+	upgradeLog, err := h.upgradeLogCache.Get(upgradeLogNamespace, upgradeLogName)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return deployment, nil
+		}
+		return nil, err
+	}
+	logrus.Infof("[%s] Found relevant upgradeLog %s/%s", deploymentControllerName, upgradeLog.Namespace, upgradeLog.Name)
+
+	toUpdate := upgradeLog.DeepCopy()
+	if deployment.Status.ReadyReplicas == *deployment.Spec.Replicas {
+		setDownloadReadyCondition(toUpdate, corev1.ConditionTrue, "", "")
+	} else {
+		setDownloadReadyCondition(toUpdate, corev1.ConditionFalse, "", "")
+	}
+
+	if !reflect.DeepEqual(upgradeLog, toUpdate) {
+		if _, err := h.upgradeLogClient.Update(toUpdate); err != nil {
+			return deployment, err
+		}
+	}
+
+	return deployment, nil
+}
+
 func (h *handler) OnJobChange(_ string, job *batchv1.Job) (*batchv1.Job, error) {
 	if job == nil || job.DeletionTimestamp != nil || job.Labels == nil {
 		return job, nil
@@ -384,14 +421,19 @@ func (h *handler) OnJobChange(_ string, job *batchv1.Job) (*batchv1.Job, error) 
 
 	toUpdate := upgradeLog.DeepCopy()
 	if job.Status.Succeeded > 0 {
-		setDownloadReadyCondition(toUpdate, corev1.ConditionTrue, "", "")
-
-	} else {
-		setDownloadReadyCondition(toUpdate, corev1.ConditionFalse, "", "")
+		archiveName, ok := job.Annotations[archiveNameAnnotation]
+		if !ok {
+			return job, nil
+		}
+		if err := setUpgradeLogArchiveReady(toUpdate, archiveName, true); err != nil {
+			return job, err
+		}
 	}
 
-	if _, err := h.upgradeLogClient.Update(toUpdate); err != nil {
-		return job, err
+	if !reflect.DeepEqual(upgradeLog, toUpdate) {
+		if _, err := h.upgradeLogClient.Update(toUpdate); err != nil {
+			return job, err
+		}
 	}
 
 	return job, nil

@@ -43,4 +43,6 @@ type Archive struct {
 	Size int64 `json:"size,omitempty"`
 	// +optional
 	GeneratedTime string `json:"generatedTime,omitempty"`
+	// +optional
+	Ready bool `json:"ready,omitempty"`
 }

@@ -30,6 +30,7 @@ const (
 	testLoggingName       = "test-upgrade-upgradelog-infra"
 	testPvcName           = "test-upgrade-upgradelog-log-archive"
 	testStatefulSetName   = "test-upgrade-upgradelog-fluentd"
+	testArchiveName       = "test-archive"
 )
 
 func newTestClusterFlowBuilder() *clusterFlowBuilder {
@@ -276,22 +277,22 @@ func TestHandler_OnJobChange(t *testing.T) {
 			name: "The log packager job is still running, should therefore set DownloadReady to False",
 			given: input{
 				key:        testJobName,
-				job:        newTestJobBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Build(),
-				upgradeLog: newTestUpgradeLogBuilder().Build(),
+				job:        newTestJobBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).WithAnnotation(archiveNameAnnotation, testArchiveName).Build(),
+				upgradeLog: newTestUpgradeLogBuilder().Archive(testArchiveName, 0, "", false).Build(),
 			},
 			expected: output{
-				upgradeLog: newTestUpgradeLogBuilder().DownloadReadyCondition(corev1.ConditionFalse, "", "").Build(),
+				upgradeLog: newTestUpgradeLogBuilder().Archive(testArchiveName, 0, "", false).Build(),
 			},
 		},
 		{
-			name: "The log packager job done, should therefore set DownloadReady to True",
+			name: "The log packager job is done, should therefore set DownloadReady to True",
 			given: input{
 				key:        testJobName,
-				job:        newTestJobBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Done().Build(),
-				upgradeLog: newTestUpgradeLogBuilder().Build(),
+				job:        newTestJobBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).WithAnnotation(archiveNameAnnotation, testArchiveName).Done().Build(),
+				upgradeLog: newTestUpgradeLogBuilder().Archive(testArchiveName, 0, "", false).Build(),
 			},
 			expected: output{
-				upgradeLog: newTestUpgradeLogBuilder().DownloadReadyCondition(corev1.ConditionTrue, "", "").Build(),
+				upgradeLog: newTestUpgradeLogBuilder().Archive(testArchiveName, 0, "", true).Build(),
 			},
 		},
 	}
