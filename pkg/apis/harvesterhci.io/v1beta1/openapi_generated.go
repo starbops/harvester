@@ -1422,6 +1422,12 @@ func schema_pkg_apis_harvesterhciio_v1beta1_Archive(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
+					"ready": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 			},
 		},

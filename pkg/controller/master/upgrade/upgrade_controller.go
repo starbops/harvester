@@ -109,15 +109,14 @@ func (h *upgradeHandler) OnChanged(key string, upgrade *harvesterv1.Upgrade) (*h
 			setLogReadyCondition(toUpdate, corev1.ConditionFalse, "Disabled", "Upgrade observability is administratively disabled")
 			toUpdate.Labels[upgradeStateLabel] = StateLoggingInfraPrepared
 			return h.upgradeClient.Update(toUpdate)
-		} else {
-			logrus.Info("Enabling upgrade observability")
-			if _, err := h.upgradeLogClient.Create(prepareUpgradeLog(upgrade)); err != nil && !apierrors.IsAlreadyExists(err) {
-				logrus.Warn("Failed to create the upgradeLog resource")
-				setLogReadyCondition(toUpdate, corev1.ConditionFalse, err.Error(), "")
-			}
-			harvesterv1.LogReady.CreateUnknownIfNotExists(toUpdate)
-			return h.upgradeClient.Update(toUpdate)
 		}
+		logrus.Info("Enabling upgrade observability")
+		if _, err := h.upgradeLogClient.Create(prepareUpgradeLog(upgrade)); err != nil && !apierrors.IsAlreadyExists(err) {
+			logrus.Warn("Failed to create the upgradeLog resource")
+			setLogReadyCondition(toUpdate, corev1.ConditionFalse, err.Error(), "")
+		}
+		harvesterv1.LogReady.CreateUnknownIfNotExists(toUpdate)
+		return h.upgradeClient.Update(toUpdate)
 	}
 
 	if (harvesterv1.LogReady.IsTrue(upgrade) || harvesterv1.LogReady.IsFalse(upgrade)) && harvesterv1.ImageReady.GetStatus(upgrade) == "" {

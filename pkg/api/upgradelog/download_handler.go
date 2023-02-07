@@ -68,12 +68,6 @@ func (h *DownloadHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if isDownloadReady {
-		// archive, ok := upgradeLog.Status.Archives[archiveName]
-		// if !ok {
-		// 	util.ResponseError(rw, http.StatusNotFound, errors.New(fmt.Sprintf("archive %s not found", archiveName)))
-		// 	return
-		// }
-
 		downloaderPodIP, err := ctlupgradelog.GetDownloaderPodIP(h.podCache, upgradeLog)
 		if err != nil {
 			util.ResponseError(rw, http.StatusBadRequest, errors.Wrap(err, "fail to get the downloader pod IP"))
@@ -106,7 +100,7 @@ func (h *DownloadHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// rw.Header().Set("Content-Length", fmt.Sprint(archive.Size))
+		// TODO: set Content-Length with archive size
 		rw.Header().Set("Content-Disposition", "attachment; filename="+fmt.Sprintf("%s%s", archiveName, archiveSuffix))
 		contentType := resp.Header.Get("Content-Type")
 		if contentType != "" {

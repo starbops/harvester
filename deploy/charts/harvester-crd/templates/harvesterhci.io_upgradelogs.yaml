@@ -48,6 +48,8 @@ spec:
                   properties:
                     generatedTime:
                       type: string
+                    ready:
+                      type: boolean
                     size:
                       format: int64
                       type: integer

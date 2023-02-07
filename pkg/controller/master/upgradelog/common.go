@@ -336,9 +336,8 @@ func setUpgradeLogArchiveReady(upgradeLog *harvesterv1.UpgradeLog, archiveName s
 		archive.Ready = ready
 		upgradeLog.Status.Archives[archiveName] = archive
 		return nil
-	} else {
-		return fmt.Errorf("archive %s of %s not found", archiveName, upgradeLog.Name)
 	}
+	return fmt.Errorf("archive %s of %s not found", archiveName, upgradeLog.Name)
 }
 
 type upgradeBuilder struct {

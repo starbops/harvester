@@ -36,13 +36,6 @@ func NewGenerateHandler(scaled *config.Scaled) *GenerateHandler {
 }
 
 func (h *GenerateHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-
-	/*
-		check if upgradelog is ready or not:
-		- if yes, create job packaging the logs and return the archive file name
-		- if no, return error with not ready msg
-	*/
-
 	upgradeLogName := mux.Vars(r)["upgradeLogName"]
 	upgradeLog, err := h.upgradeLogCache.Get(upgradeLogNamespace, upgradeLogName)
 	if err != nil {

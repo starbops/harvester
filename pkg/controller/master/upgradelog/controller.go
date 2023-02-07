@@ -144,16 +144,16 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 			logrus.Infof("[%s] Log collecting rules are existed and activated", upgradeLogControllerName)
 			setUpgradeLogReadyCondition(toUpdate, corev1.ConditionTrue, "", "")
 			return h.upgradeLogClient.Update(toUpdate)
-		} else {
-			logrus.Infof("[%s] Start to create the clusterflow and clusteroutput resources for collecting upgrade logs", upgradeLogControllerName)
-			if _, err := h.clusterOutputClient.Create(prepareClusterOutput(upgradeLog)); err != nil && !apierrors.IsAlreadyExists(err) {
-				return nil, err
-			}
-			if _, err := h.clusterFlowClient.Create(prepareClusterFlow(upgradeLog)); err != nil && !apierrors.IsAlreadyExists(err) {
-				return nil, err
-			}
-			return upgradeLog, nil
 		}
+
+		logrus.Infof("[%s] Start to create the clusterflow and clusteroutput resources for collecting upgrade logs", upgradeLogControllerName)
+		if _, err := h.clusterOutputClient.Create(prepareClusterOutput(upgradeLog)); err != nil && !apierrors.IsAlreadyExists(err) {
+			return nil, err
+		}
+		if _, err := h.clusterFlowClient.Create(prepareClusterFlow(upgradeLog)); err != nil && !apierrors.IsAlreadyExists(err) {
+			return nil, err
+		}
+		return upgradeLog, nil
 	}
 
 	if harvesterv1.UpgradeLogReady.IsTrue(upgradeLog) && harvesterv1.UpgradeEnded.GetStatus(upgradeLog) == "" {
