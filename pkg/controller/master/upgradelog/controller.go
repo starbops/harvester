@@ -35,6 +35,8 @@ const (
 	harvesterUpgradeLogStorageClassName = "harvester-longhorn"
 	harvesterUpgradeLogVolumeMode       = corev1.PersistentVolumeFilesystem
 	upgradeLogNamespace                 = "harvester-system"
+	packagerImageRepository             = "rancher/harvester-upgradelog-packager"
+	downloaderImageRepository           = "rancher/harvester-upgradelog-downloader"
 
 	upgradeStateLabel                = "harvesterhci.io/upgradeState"
 	UpgradeStateLoggingInfraPrepared = "LoggingInfraPrepared"
@@ -194,7 +196,15 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 	if harvesterv1.UpgradeEnded.IsUnknown(upgradeLog) && harvesterv1.DownloadReady.GetStatus(upgradeLog) == "" {
 		logrus.Infof("[%s] Spin up downloader", upgradeLogControllerName)
 
-		if _, err := h.deploymentClient.Create(prepareLogDownloader(upgradeLog)); err != nil && !apierrors.IsAlreadyExists(err) {
+		// Get image version for log downloader
+		upgradeName := upgradeLog.Spec.Upgrade
+		upgrade, err := h.upgradeCache.Get(upgradeLogNamespace, upgradeName)
+		if err != nil {
+			return nil, err
+		}
+		imageVersion := upgrade.Status.PreviousVersion
+
+		if _, err := h.deploymentClient.Create(prepareLogDownloader(upgradeLog, imageVersion)); err != nil && !apierrors.IsAlreadyExists(err) {
 			return nil, err
 		}
 

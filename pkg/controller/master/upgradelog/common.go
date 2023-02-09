@@ -247,7 +247,7 @@ func prepareClusterOutput(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Cluster
 	}
 }
 
-func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog) *appsv1.Deployment {
+func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog, imageVersion string) *appsv1.Deployment {
 	replicas := defaultDeploymentReplicas
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -279,7 +279,10 @@ func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog) *appsv1.Deployment
 					Containers: []corev1.Container{
 						{
 							Name:  "downloader",
-							Image: "nginx",
+							Image: fmt.Sprintf("%s:%s", downloaderImageRepository, imageVersion),
+							Args: []string{
+								"-g", "daemon off;",
+							},
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "http",
@@ -289,7 +292,7 @@ func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog) *appsv1.Deployment
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "log-archive",
-									MountPath: "/usr/share/nginx/html",
+									MountPath: "/srv/www/htdocs/",
 								},
 							},
 						},
@@ -700,7 +703,7 @@ func (p *statefulSetBuilder) Build() *appsv1.StatefulSet {
 	return p.statefulSet
 }
 
-func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, archiveName, component string) *batchv1.Job {
+func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, imageVersion, archiveName, component string) *batchv1.Job {
 	backoffLimit := defaultJobBackoffLimit
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -752,7 +755,7 @@ func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, archiveName, compone
 					Containers: []corev1.Container{
 						{
 							Name:  "log-packager",
-							Image: "busybox",
+							Image: fmt.Sprintf("%s:%s", packagerImageRepository, imageVersion),
 							Command: []string{
 								"sh", "-c", logPackagingScript,
 							},

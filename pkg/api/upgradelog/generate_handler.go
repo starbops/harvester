@@ -22,6 +22,7 @@ import (
 type GenerateHandler struct {
 	context          context.Context
 	jobClient        ctlbatchv1.JobClient
+	upgradeCache     ctlharvesterv1.UpgradeCache
 	upgradeLogClient ctlharvesterv1.UpgradeLogClient
 	upgradeLogCache  ctlharvesterv1.UpgradeLogCache
 }
@@ -30,6 +31,7 @@ func NewGenerateHandler(scaled *config.Scaled) *GenerateHandler {
 	return &GenerateHandler{
 		context:          scaled.Ctx,
 		jobClient:        scaled.BatchFactory.Batch().V1().Job(),
+		upgradeCache:     scaled.HarvesterFactory.Harvesterhci().V1beta1().Upgrade().Cache(),
 		upgradeLogClient: scaled.HarvesterFactory.Harvesterhci().V1beta1().UpgradeLog(),
 		upgradeLogCache:  scaled.HarvesterFactory.Harvesterhci().V1beta1().UpgradeLog().Cache(),
 	}
@@ -54,6 +56,18 @@ func (h *GenerateHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if isUpgradeLogReady {
+		// Get image version for log packager
+		upgrade, err := h.upgradeCache.Get(upgradeLogNamespace, upgradeLog.Spec.Upgrade)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				util.ResponseError(rw, http.StatusNotFound, err)
+				return
+			}
+			util.ResponseError(rw, http.StatusInternalServerError, err)
+			return
+		}
+		imageVersion := upgrade.Status.PreviousVersion
+
 		ts := time.Now().UTC()
 		generatedTime := strings.Replace(ts.Format(time.RFC3339), ":", "-", -1)
 		archiveName := fmt.Sprintf("%s-archive-%s", upgradeLog.Name, generatedTime)
@@ -67,7 +81,7 @@ func (h *GenerateHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 			component = ctlupgradelog.AggregatorComponent
 		}
 
-		if _, err := h.jobClient.Create(ctlupgradelog.PrepareLogPackager(upgradeLog, archiveName, component)); err != nil {
+		if _, err := h.jobClient.Create(ctlupgradelog.PrepareLogPackager(upgradeLog, imageVersion, archiveName, component)); err != nil {
 			util.ResponseError(rw, http.StatusInternalServerError, errors.Wrap(err, "fail to create log packager job"))
 			return
 		}

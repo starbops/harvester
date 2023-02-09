@@ -31,6 +31,7 @@ const (
 	testPvcName           = "test-upgrade-upgradelog-log-archive"
 	testStatefulSetName   = "test-upgrade-upgradelog-fluentd"
 	testArchiveName       = "test-archive"
+	testImageVersion      = "dev"
 )
 
 func newTestClusterFlowBuilder() *clusterFlowBuilder {
@@ -559,7 +560,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 					UpgradeEndedCondition(corev1.ConditionUnknown, "", "").Build(),
 			},
 			expected: output{
-				deployment: prepareLogDownloader(newTestUpgradeLogBuilder().Build()),
+				deployment: prepareLogDownloader(newTestUpgradeLogBuilder().Build(), testImageVersion),
 				upgradeLog: newTestUpgradeLogBuilder().
 					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
