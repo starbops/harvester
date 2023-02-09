@@ -1,0 +1,46 @@
+#!/bin/bash
+set -e
+
+TOP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." &> /dev/null && pwd )"
+SCRIPTS_DIR="${TOP_DIR}/scripts"
+UPGRADELOG_DIR="${TOP_DIR}/package/upgradelog"
+
+source $SCRIPTS_DIR/version
+
+cd $UPGRADELOG_DIR
+
+# harvester-upgradelog-packager
+
+IMAGE=${REPO}/harvester-upgradelog-packager:${TAG}
+DOCKERFILE=Dockerfile.packager
+
+docker build -f ${DOCKERFILE} -t ${IMAGE} .
+echo Built ${IMAGE}
+
+IMAGE_PUSH=${REPO}/harvester-upgradelog-packager:${IMAGE_PUSH_TAG}
+docker tag "${IMAGE}" "${IMAGE_PUSH}"
+echo Tagged "${IMAGE_PUSH}"
+
+DOCKER_CONFIG="../../.docker"
+if [[ -n ${PUSH} ]];then
+  docker --config=${DOCKER_CONFIG} push "${IMAGE_PUSH}"
+  echo Pushed "${IMAGE_PUSH}"
+fi
+
+# harvester-upgradelog-downloader
+
+IMAGE=${REPO}/harvester-upgradelog-downloader:${TAG}
+DOCKERFILE=Dockerfile.downloader
+
+docker build -f ${DOCKERFILE} -t ${IMAGE} .
+echo Built ${IMAGE}
+
+IMAGE_PUSH=${REPO}/harvester-upgradelog-downloader:${IMAGE_PUSH_TAG}
+docker tag "${IMAGE}" "${IMAGE_PUSH}"
+echo Tagged "${IMAGE_PUSH}"
+
+DOCKER_CONFIG="../../.docker"
+if [[ -n ${PUSH} ]];then
+  docker --config=${DOCKER_CONFIG} push "${IMAGE_PUSH}"
+  echo Pushed "${IMAGE_PUSH}"
+fi

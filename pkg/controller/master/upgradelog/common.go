@@ -24,10 +24,21 @@ const (
 	logPackagingScript              = `
 #!/usr/bin/env sh
 set -e
+
 echo "start to package upgrade logs"
+
 archive="$ARCHIVE_NAME.tar.gz"
-cd /archive
-tar -zcvf $archive logs
+tmpdir=$(mktemp -d)
+mkdir $tmpdir/logs
+
+cd /archive/logs
+
+for f in *.log
+do
+    cat $f | awk '{$1=$2=""; print $0}' | jq -r .message > $tmpdir/logs/$f
+done
+
+tar -zcvf /archive/$archive -C $tmpdir .
 ls -l /archive/$archive
 echo "done"
 `
