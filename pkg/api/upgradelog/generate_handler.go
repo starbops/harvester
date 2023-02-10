@@ -8,15 +8,16 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
+	ctlbatchv1 "github.com/rancher/wrangler/pkg/generated/controllers/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	"github.com/harvester/harvester/pkg/config"
 	ctlupgradelog "github.com/harvester/harvester/pkg/controller/master/upgradelog"
 	ctlharvesterv1 "github.com/harvester/harvester/pkg/generated/controllers/harvesterhci.io/v1beta1"
 	"github.com/harvester/harvester/pkg/util"
-	"github.com/pkg/errors"
-	ctlbatchv1 "github.com/rancher/wrangler/pkg/generated/controllers/batch/v1"
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 type GenerateHandler struct {
@@ -94,5 +95,5 @@ func (h *GenerateHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		util.ResponseOKWithBody(rw, archiveName)
 		return
 	}
-	util.ResponseError(rw, http.StatusNotAcceptable, errors.New(fmt.Sprintf("logging infra for upgradelog %s is not ready", upgradeLog.Name)))
+	util.ResponseError(rw, http.StatusNotAcceptable, fmt.Errorf("logging infra for upgradelog %s is not ready", upgradeLog.Name))
 }

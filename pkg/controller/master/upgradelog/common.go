@@ -8,7 +8,6 @@ import (
 	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/filter"
 	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/output"
 	"github.com/banzaicloud/operator-tools/pkg/volume"
-	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	ctlcorev1 "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -16,6 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+
+	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 )
 
 const (

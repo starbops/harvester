@@ -5,9 +5,6 @@ import (
 	"testing"
 
 	loggingv1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
-	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
-	"github.com/harvester/harvester/pkg/generated/clientset/versioned/fake"
-	"github.com/harvester/harvester/pkg/util/fakeclients"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -15,6 +12,10 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
+
+	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
+	"github.com/harvester/harvester/pkg/generated/clientset/versioned/fake"
+	"github.com/harvester/harvester/pkg/util/fakeclients"
 )
 
 const (
