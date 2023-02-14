@@ -281,8 +281,8 @@ func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog, imageVersion strin
 						{
 							Name:  "downloader",
 							Image: fmt.Sprintf("%s:%s", downloaderImageRepository, imageVersion),
-							Args: []string{
-								"-g", "daemon off;",
+							Command: []string{
+								"nginx", "-g", "daemon off;",
 							},
 							Ports: []corev1.ContainerPort{
 								{

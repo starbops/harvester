@@ -445,16 +445,6 @@ upgrade:
     repository: rancher/harvester-upgrade
     tag: master-head
 
-upgradelog-downloader:
-  image:
-    repository: rancher/harvester-upgradelog-downloader
-    tag: master-head
-
-upgradelog-packager:
-  image:
-    repository: rancher/harvester-upgradelog-packager
-    tag: master-head
-
 harvester-load-balancer:
   enabled: false
   image:

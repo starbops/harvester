@@ -32,8 +32,8 @@ const (
 	harvesterUpgradeLogStorageClassName = "harvester-longhorn"
 	harvesterUpgradeLogVolumeMode       = corev1.PersistentVolumeFilesystem
 	upgradeLogNamespace                 = "harvester-system"
-	packagerImageRepository             = "rancher/harvester-upgradelog-packager"
-	downloaderImageRepository           = "rancher/harvester-upgradelog-downloader"
+	packagerImageRepository             = "rancher/harvester-upgrade"
+	downloaderImageRepository           = "rancher/harvester-upgrade"
 
 	upgradeStateLabel                = "harvesterhci.io/upgradeState"
 	UpgradeStateLoggingInfraPrepared = "LoggingInfraPrepared"
