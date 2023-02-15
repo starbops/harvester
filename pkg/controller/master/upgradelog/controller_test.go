@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	loggingv1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
+	mgmtv3 "github.com/rancher/rancher/pkg/apis/management.cattle.io/v3"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -29,10 +30,14 @@ const (
 	testDeploymentName    = "test-upgrade-upgradelog-log-downloader"
 	testJobName           = "test-upgrade-upgradelog-log-packager"
 	testLoggingName       = "test-upgrade-upgradelog-infra"
+	testManagedChartName  = "test-upgrade-upgradelog-operator"
 	testPvcName           = "test-upgrade-upgradelog-log-archive"
 	testStatefulSetName   = "test-upgrade-upgradelog-fluentd"
 	testArchiveName       = "test-archive"
 	testImageVersion      = "dev"
+
+	rancherLoggingAddonName        = "rancher-logging"
+	rancherLoggingManagedChartName = "rancher-logging"
 )
 
 func newTestClusterFlowBuilder() *clusterFlowBuilder {
@@ -57,6 +62,10 @@ func newTestJobBuilder() *jobBuilder {
 func newTestLoggingBuilder() *loggingBuilder {
 	return newLoggingBuilder(testLoggingName).
 		WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName)
+}
+
+func newTestManagedChartBuilder() *managedChartBuilder {
+	return newManagedChartBuilder(testManagedChartName)
 }
 
 func newTestPvcBuilder() *pvcBuilder {
@@ -319,6 +328,67 @@ func TestHandler_OnJobChange(t *testing.T) {
 	}
 }
 
+func TestHandler_OnManagedChartChange(t *testing.T) {
+	type input struct {
+		key          string
+		managedChart *mgmtv3.ManagedChart
+		upgradeLog   *harvesterv1.UpgradeLog
+	}
+	type output struct {
+		managedChart *mgmtv3.ManagedChart
+		upgradeLog   *harvesterv1.UpgradeLog
+		err          error
+	}
+	var testCases = []struct {
+		name     string
+		given    input
+		expected output
+	}{
+		{
+			name: "The logging-operator ManagedChart is not ready, should therefore keep the respective UpgradeLog resource untouched",
+			given: input{
+				key:          testManagedChartName,
+				managedChart: newTestManagedChartBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Build(),
+				upgradeLog:   newTestUpgradeLogBuilder().Build(),
+			},
+			expected: output{
+				upgradeLog: newTestUpgradeLogBuilder().Build(),
+			},
+		},
+		{
+			name: "The logging-operator ManagedChart is ready, should therefore reflect on the UpgradeLog resource",
+			given: input{
+				key:          testManagedChartName,
+				managedChart: newTestManagedChartBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Ready().Build(),
+				upgradeLog:   newTestUpgradeLogBuilder().Build(),
+			},
+			expected: output{
+				upgradeLog: newTestUpgradeLogBuilder().
+					OperatorDeployedCondition(corev1.ConditionTrue, "", "").Build(),
+			},
+		},
+	}
+	for _, tc := range testCases {
+		var clientset = fake.NewSimpleClientset(tc.given.upgradeLog)
+
+		var handler = &handler{
+			namespace:        upgradeLogNamespace,
+			upgradeLogClient: fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
+			upgradeLogCache:  fakeclients.UpgradeLogCache(clientset.HarvesterhciV1beta1().UpgradeLogs),
+		}
+
+		var actual output
+		actual.managedChart, actual.err = handler.OnManagedChartChange(tc.given.key, tc.given.managedChart)
+
+		if tc.expected.upgradeLog != nil {
+			var err error
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(upgradeLogNamespace, testUpgradeLogName)
+			assert.Nil(t, err)
+			assert.Equal(t, tc.expected.upgradeLog, actual.upgradeLog, "case %q", tc.name)
+		}
+	}
+}
+
 func TestHandler_OnStatefulSetChange(t *testing.T) {
 	type input struct {
 		key         string
@@ -382,9 +452,11 @@ func TestHandler_OnStatefulSetChange(t *testing.T) {
 func TestHandler_OnUpgradeLogChange(t *testing.T) {
 	type input struct {
 		key           string
+		addon         *harvesterv1.Addon
 		clusterFlow   *loggingv1.ClusterFlow
 		clusterOutput *loggingv1.ClusterOutput
 		logging       *loggingv1.Logging
+		managedChart  *mgmtv3.ManagedChart
 		pvc           *corev1.PersistentVolumeClaim
 		upgrade       *harvesterv1.Upgrade
 		upgradeLog    *harvesterv1.UpgradeLog
@@ -394,6 +466,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 		clusterOutput *loggingv1.ClusterOutput
 		deployment    *appsv1.Deployment
 		logging       *loggingv1.Logging
+		managedChart  *mgmtv3.ManagedChart
 		pvc           *corev1.PersistentVolumeClaim
 		upgrade       *harvesterv1.Upgrade
 		upgradeLog    *harvesterv1.UpgradeLog
@@ -412,8 +485,49 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			},
 			expected: output{
 				upgradeLog: newTestUpgradeLogBuilder().
+					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").Build(),
+			},
+		},
+		{
+			name: "Both Addon and ManagedChart do not exist, therefore install the ManagedChart",
+			given: input{
+				key: testUpgradeLogName,
+				upgradeLog: newTestUpgradeLogBuilder().
+					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").Build(),
+			},
+			expected: output{
+				managedChart: prepareOperator(newTestUpgradeLogBuilder().Build()),
+				upgradeLog: newTestUpgradeLogBuilder().
 					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").
-					OperatorDeployedCondition(corev1.ConditionTrue, "", "").Build(),
+					OperatorDeployedCondition(corev1.ConditionUnknown, "", "").Build(),
+			},
+		},
+		{
+			name: "There exists an enabled rancher-logging Addon, therefore skip the ManagedChart installation",
+			given: input{
+				key:   testUpgradeLogName,
+				addon: newAddonBuilder(rancherLoggingAddonName).Enable().Build(),
+				upgradeLog: newTestUpgradeLogBuilder().
+					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").Build(),
+			},
+			expected: output{
+				upgradeLog: newTestUpgradeLogBuilder().
+					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").
+					OperatorDeployedCondition(corev1.ConditionTrue, "Skipped", "rancher-logging Addon is enabled").Build(),
+			},
+		},
+		{
+			name: "There exists a ready rancher-logging ManagedChart, therefore skip the ManagedChart installation",
+			given: input{
+				key:          testUpgradeLogName,
+				managedChart: newManagedChartBuilder(rancherLoggingManagedChartName).Ready().Build(),
+				upgradeLog: newTestUpgradeLogBuilder().
+					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").Build(),
+			},
+			expected: output{
+				upgradeLog: newTestUpgradeLogBuilder().
+					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").
+					OperatorDeployedCondition(corev1.ConditionTrue, "Skipped", "rancher-logging ManagedChart is ready").Build(),
 			},
 		},
 		{
@@ -600,6 +714,10 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		var clientset = fake.NewSimpleClientset(tc.given.upgradeLog)
+		if tc.given.addon != nil {
+			var err = clientset.Tracker().Add(tc.given.addon)
+			assert.Nil(t, err, "mock resource should add into fake controller tracker")
+		}
 		if tc.given.clusterFlow != nil {
 			var err = clientset.Tracker().Add(tc.given.clusterFlow)
 			assert.Nil(t, err, "mock resource should add into fake controller tracker")
@@ -612,9 +730,13 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			var err = clientset.Tracker().Add(tc.given.logging)
 			assert.Nil(t, err, "mock resource should add into fake controller tracker")
 		}
+		if tc.given.managedChart != nil {
+			var err = clientset.Tracker().Add(tc.given.managedChart)
+			assert.Nil(t, err, "mock resource should add into fake controller tracker")
+		}
 		if tc.given.upgrade != nil {
 			var err = clientset.Tracker().Add(tc.given.upgrade)
-			assert.Nil(t, err, "moch resource should add into fake controller tracker")
+			assert.Nil(t, err, "mock resource should add into fake controller tracker")
 		}
 
 		var k8sclientset = k8sfake.NewSimpleClientset()
@@ -625,10 +747,13 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 
 		var handler = &handler{
 			namespace:           upgradeLogNamespace,
+			addonCache:          fakeclients.AddonCache(clientset.HarvesterhciV1beta1().Addons),
 			clusterFlowClient:   fakeclients.ClusterFlowClient(clientset.LoggingV1beta1().ClusterFlows),
 			clusterOutputClient: fakeclients.ClusterOutputClient(clientset.LoggingV1beta1().ClusterOutputs),
 			deploymentClient:    fakeclients.DeploymentClient(k8sclientset.AppsV1().Deployments),
 			loggingClient:       fakeclients.LoggingClient(clientset.LoggingV1beta1().Loggings),
+			managedChartClient:  fakeclients.ManagedChartClient(clientset.ManagementV3().ManagedCharts),
+			managedChartCache:   fakeclients.ManagedChartCache(clientset.ManagementV3().ManagedCharts),
 			pvcClient:           fakeclients.PersistentVolumeClaimClient(k8sclientset.CoreV1().PersistentVolumeClaims),
 			upgradeClient:       fakeclients.UpgradeClient(clientset.HarvesterhciV1beta1().Upgrades),
 			upgradeCache:        fakeclients.UpgradeCache(clientset.HarvesterhciV1beta1().Upgrades),
@@ -682,6 +807,12 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			actual.logging, err = handler.loggingClient.Get(fmt.Sprintf("%s-infra", testUpgradeLogName), metav1.GetOptions{})
 			assert.True(t, apierrors.IsNotFound(err), "case %q", tc.name)
 			assert.Nil(t, actual.logging, "case %q", tc.name)
+		}
+
+		if tc.expected.managedChart != nil {
+			var err error
+			actual.managedChart, err = handler.managedChartClient.Get(managedChartNamespace, fmt.Sprintf("%s-operator", testUpgradeLogName), metav1.GetOptions{})
+			assert.Nil(t, err)
 		}
 
 		if tc.expected.pvc != nil {

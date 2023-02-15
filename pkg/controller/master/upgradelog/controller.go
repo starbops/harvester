@@ -6,6 +6,8 @@ import (
 	"reflect"
 
 	loggingv1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
+	mgmtv3 "github.com/rancher/rancher/pkg/apis/management.cattle.io/v3"
+	ctlmgmtv3 "github.com/rancher/rancher/pkg/generated/controllers/management.cattle.io/v3"
 	ctlappsv1 "github.com/rancher/wrangler/pkg/generated/controllers/apps/v1"
 	ctlbatchv1 "github.com/rancher/wrangler/pkg/generated/controllers/batch/v1"
 	ctlcorev1 "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
@@ -34,6 +36,8 @@ const (
 	upgradeLogNamespace                 = "harvester-system"
 	packagerImageRepository             = "rancher/harvester-upgrade"
 	downloaderImageRepository           = "rancher/harvester-upgrade"
+	addonNamespace                      = "cattle-logging-system"
+	managedChartNamespace               = "fleet-local"
 
 	upgradeStateLabel                = "harvesterhci.io/upgradeState"
 	UpgradeStateLoggingInfraPrepared = "LoggingInfraPrepared"
@@ -56,6 +60,7 @@ const (
 type handler struct {
 	ctx                 context.Context
 	namespace           string
+	addonCache          ctlharvesterv1.AddonCache
 	clusterFlowClient   ctlloggingv1.ClusterFlowClient
 	clusterOutputClient ctlloggingv1.ClusterOutputClient
 	daemonSetClient     ctlappsv1.DaemonSetClient
@@ -64,6 +69,8 @@ type handler struct {
 	jobClient           ctlbatchv1.JobClient
 	jobCache            ctlbatchv1.JobCache
 	loggingClient       ctlloggingv1.LoggingClient
+	managedChartClient  ctlmgmtv3.ManagedChartClient
+	managedChartCache   ctlmgmtv3.ManagedChartCache
 	pvcClient           ctlcorev1.PersistentVolumeClaimClient
 	statefulSetClient   ctlappsv1.StatefulSetClient
 	statefulSetCache    ctlappsv1.StatefulSetCache
@@ -80,16 +87,51 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 
 	if harvesterv1.UpgradeLogReady.GetStatus(upgradeLog) == "" {
 		logrus.Infof("[%s] Initialize upgradeLog %s/%s", upgradeLogControllerName, upgradeLog.Namespace, upgradeLog.Name)
-
 		toUpdate := upgradeLog.DeepCopy()
 		harvesterv1.UpgradeLogReady.CreateUnknownIfNotExists(toUpdate)
+		return h.upgradeLogClient.Update(toUpdate)
+	}
 
-		logrus.Infof("[%s] Deploy logging-operator", upgradeLogControllerName)
+	if harvesterv1.OperatorDeployed.GetStatus(upgradeLog) == "" {
+		logrus.Infof("[%s] Check if there is an existing logging-operator", upgradeLogControllerName)
+
+		toUpdate := upgradeLog.DeepCopy()
 		harvesterv1.OperatorDeployed.CreateUnknownIfNotExists(toUpdate)
 
-		// NOTE: As of v1.1.1, the logging-operator is by default deployed (rancher-logging), so we set the condition to true directly.
-		setOperatorDeployedCondition(toUpdate, corev1.ConditionTrue, "", "")
-		logrus.Infof("[%s] logging-operator deployed", upgradeLogControllerName)
+		// Detect rancher-logging Addon
+		if addon, err := h.addonCache.Get("cattle-logging-system", "rancher-logging"); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return nil, err
+			}
+			logrus.Infof("[%s] rancher-logging Addon is not installed", upgradeLogControllerName)
+		} else {
+			if addon.Status.Status == harvesterv1.AddonEnabled {
+				setOperatorDeployedCondition(toUpdate, corev1.ConditionTrue, "Skipped", "rancher-logging Addon is enabled")
+				return h.upgradeLogClient.Update(toUpdate)
+			}
+			logrus.Infof("[%s] rancher-logging Addon is not enabled", upgradeLogControllerName)
+		}
+
+		// Detect the rancher-logging ManagedChart
+		if managedChart, err := h.managedChartCache.Get("fleet-local", "rancher-logging"); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return nil, err
+			}
+			logrus.Infof("[%s] rancher-logging ManagedChart is not installed", upgradeLogControllerName)
+		} else {
+			if managedChart.Status.Summary.DesiredReady > 0 && managedChart.Status.Summary.DesiredReady == managedChart.Status.Summary.Ready {
+				setOperatorDeployedCondition(toUpdate, corev1.ConditionTrue, "Skipped", "rancher-logging ManagedChart is ready")
+				return h.upgradeLogClient.Update(toUpdate)
+			}
+			logrus.Warnf("[%s] rancher-logging ManagedChart is not ready", upgradeLogControllerName)
+			return nil, err
+		}
+
+		// If none of the above exists, install the customized rancher-logging ManagedChart
+		logrus.Infof("[%s] Deploy logging-operator", upgradeLogControllerName)
+		if _, err := h.managedChartClient.Create(prepareOperator(upgradeLog)); err != nil && !apierrors.IsAlreadyExists(err) {
+			return nil, err
+		}
 
 		return h.upgradeLogClient.Update(toUpdate)
 	}
@@ -431,6 +473,37 @@ func (h *handler) OnJobChange(_ string, job *batchv1.Job) (*batchv1.Job, error) 
 	return job, nil
 }
 
+func (h *handler) OnManagedChartChange(_ string, managedChart *mgmtv3.ManagedChart) (*mgmtv3.ManagedChart, error) {
+	if managedChart == nil || managedChart.DeletionTimestamp != nil || managedChart.Labels == nil || managedChart.Namespace != "fleet-local" {
+		return managedChart, nil
+	}
+
+	logrus.Infof("[%s] Processing ManagedChart %s/%s", managedChartControllerName, managedChart.Namespace, managedChart.Name)
+
+	upgradeLogName, ok := managedChart.Labels[harvesterUpgradeLogLabel]
+	if !ok {
+		return managedChart, nil
+	}
+	upgradeLog, err := h.upgradeLogCache.Get(upgradeLogNamespace, upgradeLogName)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return managedChart, nil
+		}
+		return nil, err
+	}
+	logrus.Infof("[%s] Found relevant UpgradeLog %s/%s", managedChartControllerName, upgradeLog.Namespace, upgradeLog.Name)
+
+	toUpdate := upgradeLog.DeepCopy()
+	if managedChart.Status.Summary.DesiredReady > 0 && managedChart.Status.Summary.DesiredReady == managedChart.Status.Summary.Ready {
+		setOperatorDeployedCondition(toUpdate, corev1.ConditionTrue, "", "")
+		if _, err := h.upgradeLogClient.Update(toUpdate); err != nil {
+			return managedChart, err
+		}
+	}
+
+	return managedChart, nil
+}
+
 func (h *handler) OnStatefulSetChange(_ string, statefulSet *appsv1.StatefulSet) (*appsv1.StatefulSet, error) {
 	if statefulSet == nil || statefulSet.DeletionTimestamp != nil || statefulSet.Labels == nil || statefulSet.Namespace != upgradeLogNamespace {
 		return statefulSet, nil
@@ -485,6 +558,9 @@ func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog, retainLog bool) er
 		return err
 	}
 	if err := h.loggingClient.Delete(fmt.Sprintf("%s-infra", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	if err := h.managedChartClient.Delete(managedChartNamespace, fmt.Sprintf("%s-operator", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 

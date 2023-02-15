@@ -8,6 +8,8 @@ import (
 	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/filter"
 	"github.com/banzaicloud/logging-operator/pkg/sdk/logging/model/output"
 	"github.com/banzaicloud/operator-tools/pkg/volume"
+	"github.com/rancher/fleet/pkg/apis/fleet.cattle.io/v1alpha1"
+	mgmtv3 "github.com/rancher/rancher/pkg/apis/management.cattle.io/v3"
 	ctlcorev1 "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -68,6 +70,37 @@ func preparePvc(upgradeLog *harvesterv1.UpgradeLog) *corev1.PersistentVolumeClai
 			},
 			StorageClassName: &upgradeLogStorageClassName,
 			VolumeMode:       &volumeMode,
+		},
+	}
+}
+
+func prepareOperator(upgradeLog *harvesterv1.UpgradeLog) *mgmtv3.ManagedChart {
+	return &mgmtv3.ManagedChart{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				harvesterUpgradeLogLabel: upgradeLog.Name,
+			},
+			Name:      fmt.Sprintf("%s-operator", upgradeLog.Name),
+			Namespace: managedChartNamespace,
+		},
+		Spec: mgmtv3.ManagedChartSpec{
+			Chart:            "rancher-logging",
+			ReleaseName:      fmt.Sprintf("%s-operator", upgradeLog.Name),
+			DefaultNamespace: upgradeLogNamespace,
+			RepoName:         "harvester-charts",
+			Targets: []v1alpha1.BundleTarget{
+				{
+					ClusterName: "local",
+					ClusterSelector: &metav1.LabelSelector{
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{
+								Key:      "provisioning.cattle.io/unmanaged-system-agent",
+								Operator: metav1.LabelSelectorOpDoesNotExist,
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -480,6 +513,30 @@ func (p *upgradeLogBuilder) DownloadReadyCondition(status corev1.ConditionStatus
 	return p
 }
 
+type addonBuilder struct {
+	addon *harvesterv1.Addon
+}
+
+func newAddonBuilder(name string) *addonBuilder {
+	return &addonBuilder{
+		addon: &harvesterv1.Addon{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: addonNamespace,
+			},
+		},
+	}
+}
+
+func (p *addonBuilder) Enable() *addonBuilder {
+	p.addon.Status.Status = harvesterv1.AddonEnabled
+	return p
+}
+
+func (p *addonBuilder) Build() *harvesterv1.Addon {
+	return p.addon
+}
+
 type clusterFlowBuilder struct {
 	clusterFlow *loggingv1.ClusterFlow
 }
@@ -659,6 +716,39 @@ func (p *loggingBuilder) WithLabel(key, value string) *loggingBuilder {
 
 func (p *loggingBuilder) Build() *loggingv1.Logging {
 	return p.logging
+}
+
+type managedChartBuilder struct {
+	managedChart *mgmtv3.ManagedChart
+}
+
+func newManagedChartBuilder(name string) *managedChartBuilder {
+	return &managedChartBuilder{
+		managedChart: &mgmtv3.ManagedChart{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: managedChartNamespace,
+			},
+		},
+	}
+}
+
+func (p *managedChartBuilder) WithLabel(key, value string) *managedChartBuilder {
+	if p.managedChart.Labels == nil {
+		p.managedChart.Labels = make(map[string]string)
+	}
+	p.managedChart.Labels[key] = value
+	return p
+}
+
+func (p *managedChartBuilder) Ready() *managedChartBuilder {
+	p.managedChart.Status.Summary.DesiredReady = 1
+	p.managedChart.Status.Summary.Ready = 1
+	return p
+}
+
+func (p *managedChartBuilder) Build() *mgmtv3.ManagedChart {
+	return p.managedChart
 }
 
 type pvcBuilder struct {
