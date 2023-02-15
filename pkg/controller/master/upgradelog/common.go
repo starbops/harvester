@@ -279,18 +279,21 @@ func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog, imageVersion strin
 				Spec: corev1.PodSpec{
 					Affinity: &corev1.Affinity{
 						PodAffinity: &corev1.PodAffinity{
-							RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
 								{
-									LabelSelector: &metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											harvesterUpgradeLogLabel:          upgradeLog.Name,
-											harvesterUpgradeLogComponentLabel: AggregatorComponent,
+									Weight: 100,
+									PodAffinityTerm: corev1.PodAffinityTerm{
+										LabelSelector: &metav1.LabelSelector{
+											MatchLabels: map[string]string{
+												harvesterUpgradeLogLabel:          upgradeLog.Name,
+												harvesterUpgradeLogComponentLabel: AggregatorComponent,
+											},
 										},
+										Namespaces: []string{
+											upgradeLogNamespace,
+										},
+										TopologyKey: "kubernetes.io/hostname",
 									},
-									Namespaces: []string{
-										upgradeLogNamespace,
-									},
-									TopologyKey: "kubernetes.io/hostname",
 								},
 							},
 						},
