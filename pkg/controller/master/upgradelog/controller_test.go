@@ -35,9 +35,6 @@ const (
 	testStatefulSetName   = "test-upgrade-upgradelog-fluentd"
 	testArchiveName       = "test-archive"
 	testImageVersion      = "dev"
-
-	rancherLoggingAddonName        = "rancher-logging"
-	rancherLoggingManagedChartName = "rancher-logging"
 )
 
 func newTestClusterFlowBuilder() *clusterFlowBuilder {
@@ -105,7 +102,7 @@ func TestHandler_OnClusterFlowChange(t *testing.T) {
 		expected output
 	}{
 		{
-			name: "The log collecting rule clusterFlow is inactive, should therefore keep the respective upgradeLog resource untouched",
+			name: "The log-collecting rule ClusterFlow is inactive, should therefore keep the respective UpgradeLog resource untouched",
 			given: input{
 				key:         testClusterFlowName,
 				clusterFlow: newTestClusterFlowBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Build(),
@@ -116,7 +113,7 @@ func TestHandler_OnClusterFlowChange(t *testing.T) {
 			},
 		},
 		{
-			name: "The log collecting rule clusterFlow is active, should therefore set the respective annotation",
+			name: "The log-collecting rule ClusterFlow is active, should therefore set the respective annotation",
 			given: input{
 				key:         testClusterFlowName,
 				clusterFlow: newTestClusterFlowBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Active().Build(),
@@ -165,7 +162,7 @@ func TestHandler_OnClusterOutputChange(t *testing.T) {
 		expected output
 	}{
 		{
-			name: "The log collecting rule clusterOutput is inactive, should therefore keep the respective upgradeLog resource untouched",
+			name: "The log-collecting rule ClusterOutput is inactive, should therefore keep the respective UpgradeLog resource untouched",
 			given: input{
 				key:           testClusterOutputName,
 				clusterOutput: newTestClusterOutputBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Build(),
@@ -176,7 +173,7 @@ func TestHandler_OnClusterOutputChange(t *testing.T) {
 			},
 		},
 		{
-			name: "The log collecting rule clusterOutput is active, should therefore set the respective annotation",
+			name: "The log-collecting rule ClusterOutput is active, should therefore set the respective annotation",
 			given: input{
 				key:           testClusterOutputName,
 				clusterOutput: newTestClusterOutputBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Active().Build(),
@@ -225,7 +222,7 @@ func TestHandler_OnDaemonSetChange(t *testing.T) {
 		expected output
 	}{
 		{
-			name: "The fluent-bit daemonSet is not ready, should therefore keep the respective upgradeLog resource untouched",
+			name: "The fluent-bit DaemonSet is not ready, should therefore keep the respective UpgradeLog resource untouched",
 			given: input{
 				key:        testDaemonSetName,
 				daemonSet:  newTestDaemonSetBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).NotReady().Build(),
@@ -236,7 +233,7 @@ func TestHandler_OnDaemonSetChange(t *testing.T) {
 			},
 		},
 		{
-			name: "The fluent-bit daemonSet is ready, should therefore set the respective annotation ",
+			name: "The fluent-bit DaemonSet is ready, should therefore set the respective annotation ",
 			given: input{
 				key:        testDaemonSetName,
 				daemonSet:  newTestDaemonSetBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Ready().Build(),
@@ -285,7 +282,7 @@ func TestHandler_OnJobChange(t *testing.T) {
 		expected output
 	}{
 		{
-			name: "The log packager job is still running, should therefore set DownloadReady to False",
+			name: "The log-packager Job is still running, should therefore set DownloadReady to False",
 			given: input{
 				key:        testJobName,
 				job:        newTestJobBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).WithAnnotation(archiveNameAnnotation, testArchiveName).Build(),
@@ -296,7 +293,7 @@ func TestHandler_OnJobChange(t *testing.T) {
 			},
 		},
 		{
-			name: "The log packager job is done, should therefore set DownloadReady to True",
+			name: "The log-packager Job is done, should therefore set DownloadReady to True",
 			given: input{
 				key:        testJobName,
 				job:        newTestJobBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).WithAnnotation(archiveNameAnnotation, testArchiveName).Done().Build(),
@@ -406,7 +403,7 @@ func TestHandler_OnStatefulSetChange(t *testing.T) {
 		expected output
 	}{
 		{
-			name: "The fluentd statefulSet is not ready, should therefore keep the respective upgradeLog resource untouched",
+			name: "The fluentd StatefulSet is not ready, should therefore keep the respective UpgradeLog resource untouched",
 			given: input{
 				key:         testStatefulSetName,
 				statefulSet: newTestStatefulSetBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Replicas(1).Build(),
@@ -417,7 +414,7 @@ func TestHandler_OnStatefulSetChange(t *testing.T) {
 			},
 		},
 		{
-			name: "The fluetd statefulSet is ready, should therefore set the respective annotation ",
+			name: "The fluetd StatefulSet is ready, should therefore set the respective annotation ",
 			given: input{
 				key:         testStatefulSetName,
 				statefulSet: newTestStatefulSetBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Replicas(1).ReadyReplicas(1).Build(),
@@ -531,7 +528,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			},
 		},
 		{
-			name: "The logging-operator is deployed, should therefore create logging resource",
+			name: "The logging-operator is deployed, should therefore create Logging resource",
 			given: input{
 				key: testUpgradeLogName,
 				upgradeLog: newTestUpgradeLogBuilder().
@@ -548,7 +545,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			},
 		},
 		{
-			name: "The underlying logging infrastructure is partly ready (fluent-bit), should therefore keep the respective upgradeLog resource untouched",
+			name: "The underlying logging infrastructure is partly ready (fluent-bit), should therefore keep the respective UpgradeLog resource untouched",
 			given: input{
 				key: testUpgradeLogName,
 				upgradeLog: newTestUpgradeLogBuilder().
@@ -566,7 +563,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			},
 		},
 		{
-			name: "The underlying logging infrastructure is partly ready (fluentd), should therefore keep the respective upgradeLog resource untouched",
+			name: "The underlying logging infrastructure is partly ready (fluentd), should therefore keep the respective UpgradeLog resource untouched",
 			given: input{
 				key: testUpgradeLogName,
 				upgradeLog: newTestUpgradeLogBuilder().
@@ -604,7 +601,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			},
 		},
 		{
-			name: "The InfraScaffolded condition is marked as ready, should therefore create clusterflow and clusteroutput resources",
+			name: "The InfraScaffolded condition is marked as ready, should therefore installed the log-collecting rules",
 			given: input{
 				key: testUpgradeLogName,
 				upgradeLog: newTestUpgradeLogBuilder().
@@ -622,7 +619,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			},
 		},
 		{
-			name: "The log collecting rules are installed, should therefore mark the UpgradeLogReady condition as ready",
+			name: "The log-collecting rules are installed, should therefore mark the UpgradeLogReady condition as ready",
 			given: input{
 				key: testUpgradeLogName,
 				upgradeLog: newTestUpgradeLogBuilder().
@@ -642,7 +639,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			},
 		},
 		{
-			name: "The UpgradeLogReady condition is ready, should therefore mark the LogReady condition of the upgrade resource as ready",
+			name: "The UpgradeLogReady condition is ready, should therefore mark the LogReady condition of the Upgrade resource as ready",
 			given: input{
 				key:     testUpgradeLogName,
 				upgrade: newTestUpgradeBuilder().Build(),
@@ -664,7 +661,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			},
 		},
 		{
-			name: "The logging infra is ready and the upgrade is resumed, should therefore create the downloader deployment",
+			name: "The logging infra is ready and the upgrade is resumed, should therefore create the log-downloader Deployment",
 			given: input{
 				key:     testUpgradeLogName,
 				upgrade: newTestUpgradeBuilder().Build(),
@@ -685,7 +682,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			},
 		},
 		{
-			name: "The UpgradeEnded condition is set as True, should therefore tear down the logging infrastructure (log archive volume should retain)",
+			name: "The UpgradeEnded condition is set as True, should therefore tear down the logging infrastructure (log-archive volume should retain)",
 			given: input{
 				key:           testUpgradeLogName,
 				clusterFlow:   newTestClusterFlowBuilder().Build(),
