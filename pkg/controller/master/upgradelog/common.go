@@ -121,6 +121,10 @@ func prepareLogging(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Logging {
 					harvesterUpgradeLogLabel:          upgradeLog.Name,
 					harvesterUpgradeLogComponentLabel: ShipperComponent,
 				},
+				Image: loggingv1.ImageSpec{
+					Repository: fluentBitImageRepo,
+					Tag:        fluentBitImageTag,
+				},
 				Tolerations: []corev1.Toleration{
 					{
 						Key:      "node-role.kubernetes.io/master",
@@ -133,6 +137,14 @@ func prepareLogging(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Logging {
 				Labels: map[string]string{
 					harvesterUpgradeLogLabel:          upgradeLog.Name,
 					harvesterUpgradeLogComponentLabel: AggregatorComponent,
+				},
+				Image: loggingv1.ImageSpec{
+					Repository: fluentdImageRepo,
+					Tag:        fluentdImageTag,
+				},
+				ConfigReloaderImage: loggingv1.ImageSpec{
+					Repository: configReloaderImageRepo,
+					Tag:        configReloaderImageTag,
 				},
 				DisablePvc: true,
 				ExtraVolumes: []loggingv1.ExtraVolume{

@@ -408,7 +408,6 @@ func (h *upgradeHandler) isSingleNodeCluster() (string, error) {
 
 func initStatus(upgrade *harvesterv1.Upgrade) {
 	harvesterv1.UpgradeCompleted.CreateUnknownIfNotExists(upgrade)
-	// harvesterv1.LogReady.CreateUnknownIfNotExists(upgrade)
 	if upgrade.Labels == nil {
 		upgrade.Labels = make(map[string]string)
 	}

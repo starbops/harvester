@@ -55,6 +55,13 @@ const (
 	upgradeLogStateCollecting         = "Collecting"
 	upgradeLogStateStopped            = "Stopped"
 	archiveNameAnnotation             = "harvesterhci.io/archiveName"
+
+	fluentBitImageRepo      = "rancher/mirrored-fluent-fluent-bit"
+	fluentBitImageTag       = "1.9.5"
+	fluentdImageRepo        = "rancher/mirrored-banzaicloud-fluentd"
+	fluentdImageTag         = "v1.14.6-alpine-5"
+	configReloaderImageRepo = "rancher/mirrored-jimmidyson-configmap-reload"
+	configReloaderImageTag  = "v0.4.0"
 )
 
 type handler struct {
