@@ -28,7 +28,7 @@ func (c UpgradeLogClient) Delete(namespace, name string, options *metav1.DeleteO
 	panic("implement me")
 }
 func (c UpgradeLogClient) Get(namespace, name string, options metav1.GetOptions) (*harvesterv1.UpgradeLog, error) {
-	panic("implement me")
+	return c(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 }
 func (c UpgradeLogClient) List(namespace string, opts metav1.ListOptions) (*harvesterv1.UpgradeLogList, error) {
 	panic("implement me")

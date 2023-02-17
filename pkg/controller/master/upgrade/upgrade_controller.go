@@ -112,9 +112,11 @@ func (h *upgradeHandler) OnChanged(key string, upgrade *harvesterv1.Upgrade) (*h
 			return h.upgradeClient.Update(toUpdate)
 		}
 		logrus.Info("Enabling upgrade observability")
-		if _, err := h.upgradeLogClient.Create(prepareUpgradeLog(upgrade)); err != nil && !apierrors.IsAlreadyExists(err) {
+		if upgradeLog, err := h.upgradeLogClient.Create(prepareUpgradeLog(upgrade)); err != nil && !apierrors.IsAlreadyExists(err) {
 			logrus.Warn("Failed to create the upgradeLog resource")
 			setLogReadyCondition(toUpdate, corev1.ConditionFalse, err.Error(), "")
+		} else {
+			toUpdate.Status.UpgradeLog = upgradeLog.Name
 		}
 		harvesterv1.LogReady.CreateUnknownIfNotExists(toUpdate)
 		return h.upgradeClient.Update(toUpdate)
@@ -370,9 +372,8 @@ func (h *upgradeHandler) cleanup(upgrade *harvesterv1.Upgrade, cleanJobs bool) e
 	}
 
 	// tear down logging infra if any
-	if upgrade.Spec.LogEnabled {
-		upgradeLogName := fmt.Sprintf("%s-upgradelog", upgrade.Name)
-		upgradeLog, err := h.upgradeLogCache.Get(upgradeNamespace, upgradeLogName)
+	if upgrade.Spec.LogEnabled && upgrade.Status.UpgradeLog != "" {
+		upgradeLog, err := h.upgradeLogCache.Get(upgradeNamespace, upgrade.Status.UpgradeLog)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil

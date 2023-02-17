@@ -1,11 +1,11 @@
 package upgradelog
 
 import (
-	"fmt"
 	"testing"
 
 	loggingv1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
 	mgmtv3 "github.com/rancher/rancher/pkg/apis/management.cattle.io/v3"
+	"github.com/rancher/wrangler/pkg/name"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -764,12 +764,12 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			// HACK: cannot create ClusterFlow with namespace specified using fake client so we skip the field here
 			tc.expected.clusterFlow.Namespace = ""
 			var err error
-			actual.clusterFlow, err = handler.clusterFlowClient.Get(upgradeLogNamespace, fmt.Sprintf("%s-clusterflow", testUpgradeLogName), metav1.GetOptions{})
+			actual.clusterFlow, err = handler.clusterFlowClient.Get(upgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, FlowComponent), metav1.GetOptions{})
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.clusterFlow, actual.clusterFlow, "case %q", tc.name)
 		} else {
 			var err error
-			actual.clusterFlow, err = handler.clusterFlowClient.Get(upgradeLogNamespace, fmt.Sprintf("%s-clusterflow", testUpgradeLogName), metav1.GetOptions{})
+			actual.clusterFlow, err = handler.clusterFlowClient.Get(upgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, FlowComponent), metav1.GetOptions{})
 			assert.True(t, apierrors.IsNotFound(err), "case %q", tc.name)
 			assert.Nil(t, actual.clusterFlow, "case %q", tc.name)
 		}
@@ -778,48 +778,48 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			// HACK: cannot create ClusterOutput with namespace specified using fake client so we skip the field here
 			tc.expected.clusterOutput.Namespace = ""
 			var err error
-			actual.clusterOutput, err = handler.clusterOutputClient.Get(upgradeLogNamespace, fmt.Sprintf("%s-clusteroutput", testUpgradeLogName), metav1.GetOptions{})
+			actual.clusterOutput, err = handler.clusterOutputClient.Get(upgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, OutputComponent), metav1.GetOptions{})
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.clusterOutput, actual.clusterOutput, "case %q", tc.name)
 		} else {
 			var err error
-			actual.clusterOutput, err = handler.clusterOutputClient.Get(upgradeLogNamespace, fmt.Sprintf("%s-clusteroutput", testUpgradeLogName), metav1.GetOptions{})
+			actual.clusterOutput, err = handler.clusterOutputClient.Get(upgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, OutputComponent), metav1.GetOptions{})
 			assert.True(t, apierrors.IsNotFound(err), "case %q", tc.name)
 			assert.Nil(t, actual.clusterOutput, "case %q", tc.name)
 		}
 
 		if tc.expected.deployment != nil {
 			var err error
-			actual.deployment, err = handler.deploymentClient.Get(upgradeLogNamespace, fmt.Sprintf("%s-log-downloader", testUpgradeLogName), metav1.GetOptions{})
+			actual.deployment, err = handler.deploymentClient.Get(upgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, DownloaderComponent), metav1.GetOptions{})
 			assert.Nil(t, err)
 		}
 
 		if tc.expected.logging != nil {
 			var err error
-			actual.logging, err = handler.loggingClient.Get(fmt.Sprintf("%s-infra", testUpgradeLogName), metav1.GetOptions{})
+			actual.logging, err = handler.loggingClient.Get(name.SafeConcatName(testUpgradeLogName, InfraComponent), metav1.GetOptions{})
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.logging, actual.logging, "case %q", tc.name)
 		} else {
 			var err error
-			actual.logging, err = handler.loggingClient.Get(fmt.Sprintf("%s-infra", testUpgradeLogName), metav1.GetOptions{})
+			actual.logging, err = handler.loggingClient.Get(name.SafeConcatName(testUpgradeLogName, InfraComponent), metav1.GetOptions{})
 			assert.True(t, apierrors.IsNotFound(err), "case %q", tc.name)
 			assert.Nil(t, actual.logging, "case %q", tc.name)
 		}
 
 		if tc.expected.managedChart != nil {
 			var err error
-			actual.managedChart, err = handler.managedChartClient.Get(managedChartNamespace, fmt.Sprintf("%s-operator", testUpgradeLogName), metav1.GetOptions{})
+			actual.managedChart, err = handler.managedChartClient.Get(managedChartNamespace, name.SafeConcatName(testUpgradeLogName, OperatorComponent), metav1.GetOptions{})
 			assert.Nil(t, err)
 		}
 
 		if tc.expected.pvc != nil {
 			var err error
-			actual.pvc, err = handler.pvcClient.Get(upgradeLogNamespace, fmt.Sprintf("%s-log-archive", testUpgradeLogName), metav1.GetOptions{})
+			actual.pvc, err = handler.pvcClient.Get(upgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, LogArchiveComponent), metav1.GetOptions{})
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.pvc, actual.pvc, "case %q", tc.name)
 		} else {
 			var err error
-			actual.pvc, err = handler.pvcClient.Get(upgradeLogNamespace, fmt.Sprintf("%s-log-archive", testUpgradeLogName), metav1.GetOptions{})
+			actual.pvc, err = handler.pvcClient.Get(upgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, LogArchiveComponent), metav1.GetOptions{})
 			assert.True(t, apierrors.IsNotFound(err), "case %q", tc.name)
 			assert.Nil(t, actual.pvc, "case %q", tc.name)
 		}

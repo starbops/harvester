@@ -2,7 +2,6 @@ package upgradelog
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
 	loggingv1 "github.com/banzaicloud/logging-operator/pkg/sdk/logging/api/v1beta1"
@@ -11,6 +10,7 @@ import (
 	ctlappsv1 "github.com/rancher/wrangler/pkg/generated/controllers/apps/v1"
 	ctlbatchv1 "github.com/rancher/wrangler/pkg/generated/controllers/batch/v1"
 	ctlcorev1 "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
+	"github.com/rancher/wrangler/pkg/name"
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -27,10 +27,6 @@ import (
 const (
 	harvesterUpgradeLogLabel            = "harvesterhci.io/upgradeLog"
 	harvesterUpgradeLogComponentLabel   = "harvesterhci.io/upgradeLogComponent"
-	AggregatorComponent                 = "aggregator"
-	ShipperComponent                    = "shipper"
-	PackagerComponent                   = "packager"
-	DownloaderComponent                 = "downloader"
 	harvesterUpgradeLogStorageClassName = "harvester-longhorn"
 	harvesterUpgradeLogVolumeMode       = corev1.PersistentVolumeFilesystem
 	upgradeLogNamespace                 = "harvester-system"
@@ -556,18 +552,18 @@ func (h *handler) OnStatefulSetChange(_ string, statefulSet *appsv1.StatefulSet)
 }
 
 func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog, retainLog bool) error {
-	logrus.Infof("[%s] Tearing down the logging infrastructure for upgrade procedure", upgradeLogControllerName)
+	logrus.Info("Tearing down the logging infrastructure for upgrade procedure")
 
-	if err := h.clusterFlowClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-clusterflow", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+	if err := h.clusterFlowClient.Delete(upgradeLogNamespace, name.SafeConcatName(upgradeLog.Name, FlowComponent), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
-	if err := h.clusterOutputClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-clusteroutput", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+	if err := h.clusterOutputClient.Delete(upgradeLogNamespace, name.SafeConcatName(upgradeLog.Name, OutputComponent), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
-	if err := h.loggingClient.Delete(fmt.Sprintf("%s-infra", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+	if err := h.loggingClient.Delete(name.SafeConcatName(upgradeLog.Name, InfraComponent), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
-	if err := h.managedChartClient.Delete(managedChartNamespace, fmt.Sprintf("%s-operator", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+	if err := h.managedChartClient.Delete(managedChartNamespace, name.SafeConcatName(upgradeLog.Name, OperatorComponent), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 
@@ -587,12 +583,12 @@ func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog, retainLog bool) er
 		}
 
 		if harvesterv1.DownloadReady.IsTrue(upgradeLog) {
-			if err := h.deploymentClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-log-downloader", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			if err := h.deploymentClient.Delete(upgradeLogNamespace, name.SafeConcatName(upgradeLog.Name, DownloaderComponent), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return err
 			}
 		}
 
-		if err := h.pvcClient.Delete(upgradeLogNamespace, fmt.Sprintf("%s-log-archive", upgradeLog.Name), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		if err := h.pvcClient.Delete(upgradeLogNamespace, name.SafeConcatName(upgradeLog.Name, LogArchiveComponent), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 	}

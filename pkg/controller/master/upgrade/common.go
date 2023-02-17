@@ -129,7 +129,7 @@ func markComplete(upgrade *harvesterv1.Upgrade) {
 func prepareUpgradeLog(upgrade *harvesterv1.Upgrade) *harvesterv1.UpgradeLog {
 	return &harvesterv1.UpgradeLog{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-upgradelog", upgrade.Name),
+			Name:      name.SafeConcatName(upgrade.Name, "upgradelog"),
 			Namespace: upgradeNamespace,
 			Labels: map[string]string{
 				harvesterUpgradeLabel: upgrade.Name,
@@ -417,7 +417,7 @@ const (
 	testPlanName       = "test-plan"
 	testNodeName       = "test-node"
 	testUpgradeName    = "test-upgrade"
-	testUpgradeLogName = "test-upgradelog"
+	testUpgradeLogName = "test-upgrade-upgradelog"
 	testVersion        = "test-version"
 	testUpgradeImage   = "test-upgrade-image"
 	testPlanHash       = "test-hash"
@@ -567,6 +567,11 @@ func (p *upgradeBuilder) NodeUpgradeStatus(nodeName string, state, reason, messa
 
 func (p *upgradeBuilder) ImageIDStatus(imageName string) *upgradeBuilder {
 	p.upgrade.Status.ImageID = imageName
+	return p
+}
+
+func (p *upgradeBuilder) UpgradeLogStatus(upgradeLogName string) *upgradeBuilder {
+	p.upgrade.Status.UpgradeLog = upgradeLogName
 	return p
 }
 

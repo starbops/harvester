@@ -11,6 +11,7 @@ import (
 	"github.com/rancher/fleet/pkg/apis/fleet.cattle.io/v1alpha1"
 	mgmtv3 "github.com/rancher/rancher/pkg/apis/management.cattle.io/v3"
 	ctlcorev1 "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
+	"github.com/rancher/wrangler/pkg/name"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -47,6 +48,18 @@ echo "done"
 `
 )
 
+const (
+	InfraComponent      = "infra"
+	ShipperComponent    = "shipper"
+	AggregatorComponent = "aggregator"
+	DownloaderComponent = "downloader"
+	FlowComponent       = "clusterflow"
+	LogArchiveComponent = "log-archive"
+	OperatorComponent   = "operator"
+	OutputComponent     = "clusteroutput"
+	PackagerComponent   = "packager"
+)
+
 func preparePvc(upgradeLog *harvesterv1.UpgradeLog) *corev1.PersistentVolumeClaim {
 	upgradeLogStorageClassName := harvesterUpgradeLogStorageClassName
 	volumeMode := harvesterUpgradeLogVolumeMode
@@ -54,9 +67,10 @@ func preparePvc(upgradeLog *harvesterv1.UpgradeLog) *corev1.PersistentVolumeClai
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				harvesterUpgradeLogLabel: upgradeLog.Name,
+				harvesterUpgradeLogLabel:          upgradeLog.Name,
+				harvesterUpgradeLogComponentLabel: LogArchiveComponent,
 			},
-			Name:      fmt.Sprintf("%s-log-archive", upgradeLog.Name),
+			Name:      name.SafeConcatName(upgradeLog.Name, LogArchiveComponent),
 			Namespace: upgradeLogNamespace,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
@@ -75,17 +89,19 @@ func preparePvc(upgradeLog *harvesterv1.UpgradeLog) *corev1.PersistentVolumeClai
 }
 
 func prepareOperator(upgradeLog *harvesterv1.UpgradeLog) *mgmtv3.ManagedChart {
+	operatorName := name.SafeConcatName(upgradeLog.Name, OperatorComponent)
 	return &mgmtv3.ManagedChart{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				harvesterUpgradeLogLabel: upgradeLog.Name,
+				harvesterUpgradeLogLabel:          upgradeLog.Name,
+				harvesterUpgradeLogComponentLabel: OperatorComponent,
 			},
-			Name:      fmt.Sprintf("%s-operator", upgradeLog.Name),
+			Name:      operatorName,
 			Namespace: managedChartNamespace,
 		},
 		Spec: mgmtv3.ManagedChartSpec{
 			Chart:            "rancher-logging",
-			ReleaseName:      fmt.Sprintf("%s-operator", upgradeLog.Name),
+			ReleaseName:      operatorName,
 			DefaultNamespace: upgradeLogNamespace,
 			RepoName:         "harvester-charts",
 			Targets: []v1alpha1.BundleTarget{
@@ -109,9 +125,10 @@ func prepareLogging(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Logging {
 	return &loggingv1.Logging{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				harvesterUpgradeLogLabel: upgradeLog.Name,
+				harvesterUpgradeLogLabel:          upgradeLog.Name,
+				harvesterUpgradeLogComponentLabel: InfraComponent,
 			},
-			Name: fmt.Sprintf("%s-infra", upgradeLog.Name),
+			Name: name.SafeConcatName(upgradeLog.Name, InfraComponent),
 		},
 		Spec: loggingv1.LoggingSpec{
 			ControlNamespace:        upgradeLog.Namespace,
@@ -155,7 +172,7 @@ func prepareLogging(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Logging {
 						Volume: &volume.KubernetesVolume{
 							PersistentVolumeClaim: &volume.PersistentVolumeClaim{
 								PersistentVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: fmt.Sprintf("%s-log-archive", upgradeLog.Name),
+									ClaimName: name.SafeConcatName(upgradeLog.Name, LogArchiveComponent),
 									ReadOnly:  false,
 								},
 							},
@@ -174,27 +191,25 @@ func prepareLogging(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Logging {
 }
 
 func prepareClusterFlow(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.ClusterFlow {
-	tagNormaliser := filter.TagNormaliser{}
-	dedot := filter.DedotFilterConfig{
-		Separator: "-",
-		Nested:    true,
-	}
-
 	return &loggingv1.ClusterFlow{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				harvesterUpgradeLogLabel: upgradeLog.Name,
+				harvesterUpgradeLogLabel:          upgradeLog.Name,
+				harvesterUpgradeLogComponentLabel: FlowComponent,
 			},
-			Name:      fmt.Sprintf("%s-clusterflow", upgradeLog.Name),
+			Name:      name.SafeConcatName(upgradeLog.Name, FlowComponent),
 			Namespace: upgradeLogNamespace,
 		},
 		Spec: loggingv1.ClusterFlowSpec{
 			Filters: []loggingv1.Filter{
 				{
-					TagNormaliser: &tagNormaliser,
+					TagNormaliser: &filter.TagNormaliser{},
 				},
 				{
-					Dedot: &dedot,
+					Dedot: &filter.DedotFilterConfig{
+						Separator: "-",
+						Nested:    true,
+					},
 				},
 			},
 			Match: []loggingv1.ClusterMatch{
@@ -262,7 +277,7 @@ func prepareClusterFlow(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.ClusterFl
 					},
 				},
 			},
-			GlobalOutputRefs: []string{fmt.Sprintf("%s-clusteroutput", upgradeLog.Name)},
+			GlobalOutputRefs: []string{name.SafeConcatName(upgradeLog.Name, OutputComponent)},
 		},
 	}
 }
@@ -271,9 +286,10 @@ func prepareClusterOutput(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Cluster
 	return &loggingv1.ClusterOutput{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				harvesterUpgradeLogLabel: upgradeLog.Name,
+				harvesterUpgradeLogLabel:          upgradeLog.Name,
+				harvesterUpgradeLogComponentLabel: OutputComponent,
 			},
-			Name:      fmt.Sprintf("%s-clusteroutput", upgradeLog.Name),
+			Name:      name.SafeConcatName(upgradeLog.Name, OutputComponent),
 			Namespace: upgradeLogNamespace,
 		},
 		Spec: loggingv1.ClusterOutputSpec{
@@ -301,7 +317,7 @@ func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog, imageVersion strin
 				harvesterUpgradeLogLabel:          upgradeLog.Name,
 				harvesterUpgradeLogComponentLabel: DownloaderComponent,
 			},
-			Name:      fmt.Sprintf("%s-log-downloader", upgradeLog.Name),
+			Name:      name.SafeConcatName(upgradeLog.Name, DownloaderComponent),
 			Namespace: upgradeLogNamespace,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -310,7 +326,6 @@ func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog, imageVersion strin
 				MatchLabels: map[string]string{
 					harvesterUpgradeLogLabel:          upgradeLog.Name,
 					harvesterUpgradeLogComponentLabel: DownloaderComponent,
-					"app":                             "downloader",
 				},
 			},
 			Template: corev1.PodTemplateSpec{
@@ -318,7 +333,6 @@ func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog, imageVersion strin
 					Labels: map[string]string{
 						harvesterUpgradeLogLabel:          upgradeLog.Name,
 						harvesterUpgradeLogComponentLabel: DownloaderComponent,
-						"app":                             "downloader",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -369,7 +383,7 @@ func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog, imageVersion strin
 							Name: "log-archive",
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: fmt.Sprintf("%s-log-archive", upgradeLog.Name),
+									ClaimName: name.SafeConcatName(upgradeLog.Name, LogArchiveComponent),
 									ReadOnly:  true,
 								},
 							},
@@ -838,7 +852,7 @@ func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, imageVersion, archiv
 				harvesterUpgradeLogLabel:          upgradeLog.Name,
 				harvesterUpgradeLogComponentLabel: PackagerComponent,
 			},
-			GenerateName: fmt.Sprintf("%s-log-packager-", upgradeLog.Name),
+			GenerateName: name.SafeConcatName(upgradeLog.Name, PackagerComponent) + "-",
 			Namespace:    upgradeLogNamespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
@@ -878,7 +892,7 @@ func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, imageVersion, archiv
 					},
 					Containers: []corev1.Container{
 						{
-							Name:  "log-packager",
+							Name:  "packager",
 							Image: fmt.Sprintf("%s:%s", packagerImageRepository, imageVersion),
 							Command: []string{
 								"sh", "-c", logPackagingScript,
@@ -902,7 +916,7 @@ func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, imageVersion, archiv
 							Name: "log-archive",
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: fmt.Sprintf("%s-log-archive", upgradeLog.Name),
+									ClaimName: name.SafeConcatName(upgradeLog.Name, LogArchiveComponent),
 								},
 							},
 						},
@@ -936,8 +950,8 @@ func SetUpgradeLogArchive(upgradeLog *harvesterv1.UpgradeLog, archiveName string
 
 func GetDownloaderPodIP(podCache ctlcorev1.PodCache, upgradeLog *harvesterv1.UpgradeLog) (string, error) {
 	sets := labels.Set{
-		"app":                    "downloader",
-		harvesterUpgradeLogLabel: upgradeLog.Name,
+		harvesterUpgradeLogLabel:          upgradeLog.Name,
+		harvesterUpgradeLogComponentLabel: DownloaderComponent,
 	}
 
 	pods, err := podCache.List(upgradeLog.Namespace, sets.AsSelector())
