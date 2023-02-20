@@ -16,6 +16,7 @@ const (
 	loggingControllerName       = "harvester-upgradelog-logging-controller"
 	statefulSetControllerName   = "harvester-upgradelog-statefulset-controller"
 	managedChartControllerName  = "harvester-upgradelog-managedchart-controller"
+	upgradeControllerName       = "harvester-upgradelog-upgrade-controller"
 )
 
 func Register(ctx context.Context, management *config.Management, options config.Options) error {
@@ -64,6 +65,7 @@ func Register(ctx context.Context, management *config.Management, options config
 	jobController.OnChange(ctx, jobControllerName, handler.OnJobChange)
 	statefulSetController.OnChange(ctx, statefulSetControllerName, handler.OnStatefulSetChange)
 	managedChartController.OnChange(ctx, managedChartControllerName, handler.OnManagedChartChange)
+	upgradeController.OnChange(ctx, upgradeControllerName, handler.OnUpgradeChange)
 
 	return nil
 }

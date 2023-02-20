@@ -94,7 +94,7 @@ func TestUpgradeHandler_OnChanged(t *testing.T) {
 				vmi:     newTestExistingVirtualMachineImage(upgradeNamespace, testUpgradeImage),
 			},
 			expected: output{
-				upgradeLog: newTestUpgradeLog(),
+				upgradeLog: prepareUpgradeLog(newTestUpgradeBuilder().Build()),
 				upgrade: newTestUpgradeBuilder().WithLogEnabled(true).InitStatus().
 					WithLabel(upgradeStateLabel, StatePreparingLoggingInfra).
 					UpgradeLogStatus(testUpgradeLogName).

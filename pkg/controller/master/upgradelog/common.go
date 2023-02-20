@@ -60,6 +60,15 @@ const (
 	PackagerComponent   = "packager"
 )
 
+func upgradeLogReference(upgradeLog *harvesterv1.UpgradeLog) metav1.OwnerReference {
+	return metav1.OwnerReference{
+		Name:       upgradeLog.Name,
+		Kind:       upgradeLog.Kind,
+		UID:        upgradeLog.UID,
+		APIVersion: upgradeLog.APIVersion,
+	}
+}
+
 func preparePvc(upgradeLog *harvesterv1.UpgradeLog) *corev1.PersistentVolumeClaim {
 	upgradeLogStorageClassName := harvesterUpgradeLogStorageClassName
 	volumeMode := harvesterUpgradeLogVolumeMode
@@ -72,6 +81,9 @@ func preparePvc(upgradeLog *harvesterv1.UpgradeLog) *corev1.PersistentVolumeClai
 			},
 			Name:      name.SafeConcatName(upgradeLog.Name, LogArchiveComponent),
 			Namespace: upgradeLogNamespace,
+			OwnerReferences: []metav1.OwnerReference{
+				upgradeLogReference(upgradeLog),
+			},
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{
@@ -129,6 +141,9 @@ func prepareLogging(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Logging {
 				harvesterUpgradeLogComponentLabel: InfraComponent,
 			},
 			Name: name.SafeConcatName(upgradeLog.Name, InfraComponent),
+			OwnerReferences: []metav1.OwnerReference{
+				upgradeLogReference(upgradeLog),
+			},
 		},
 		Spec: loggingv1.LoggingSpec{
 			ControlNamespace:        upgradeLog.Namespace,
@@ -199,6 +214,9 @@ func prepareClusterFlow(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.ClusterFl
 			},
 			Name:      name.SafeConcatName(upgradeLog.Name, FlowComponent),
 			Namespace: upgradeLogNamespace,
+			OwnerReferences: []metav1.OwnerReference{
+				upgradeLogReference(upgradeLog),
+			},
 		},
 		Spec: loggingv1.ClusterFlowSpec{
 			Filters: []loggingv1.Filter{
@@ -291,6 +309,9 @@ func prepareClusterOutput(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Cluster
 			},
 			Name:      name.SafeConcatName(upgradeLog.Name, OutputComponent),
 			Namespace: upgradeLogNamespace,
+			OwnerReferences: []metav1.OwnerReference{
+				upgradeLogReference(upgradeLog),
+			},
 		},
 		Spec: loggingv1.ClusterOutputSpec{
 			OutputSpec: loggingv1.OutputSpec{
@@ -319,6 +340,9 @@ func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog, imageVersion strin
 			},
 			Name:      name.SafeConcatName(upgradeLog.Name, DownloaderComponent),
 			Namespace: upgradeLogNamespace,
+			OwnerReferences: []metav1.OwnerReference{
+				upgradeLogReference(upgradeLog),
+			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
@@ -466,6 +490,11 @@ func (p *upgradeBuilder) LogReadyCondition(status corev1.ConditionStatus, reason
 	harvesterv1.LogReady.SetStatus(p.upgrade, string(status))
 	harvesterv1.LogReady.Reason(p.upgrade, reason)
 	harvesterv1.LogReady.Message(p.upgrade, message)
+	return p
+}
+
+func (p *upgradeBuilder) UpgradeLogStatus(upgradeLogName string) *upgradeBuilder {
+	p.upgrade.Status.UpgradeLog = upgradeLogName
 	return p
 }
 
@@ -855,12 +884,7 @@ func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, imageVersion, archiv
 			GenerateName: name.SafeConcatName(upgradeLog.Name, PackagerComponent) + "-",
 			Namespace:    upgradeLogNamespace,
 			OwnerReferences: []metav1.OwnerReference{
-				{
-					Name:       upgradeLog.Name,
-					Kind:       upgradeLog.Kind,
-					UID:        upgradeLog.UID,
-					APIVersion: upgradeLog.APIVersion,
-				},
+				upgradeLogReference(upgradeLog),
 			},
 		},
 		Spec: batchv1.JobSpec{

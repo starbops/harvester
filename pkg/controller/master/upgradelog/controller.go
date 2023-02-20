@@ -17,7 +17,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 
 	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	ctlharvesterv1 "github.com/harvester/harvester/pkg/generated/controllers/harvesterhci.io/v1beta1"
@@ -37,6 +36,8 @@ const (
 	rancherLoggingAddonName             = "rancher-logging"
 	rancherLoggingManagedChartName      = "rancher-logging"
 
+	upgradeNamespace                 = "harvester-system"
+	upgradeReadMessageLabel          = "harvesterhci.io/read-message"
 	upgradeStateLabel                = "harvesterhci.io/upgradeState"
 	UpgradeStateLoggingInfraPrepared = "LoggingInfraPrepared"
 
@@ -261,14 +262,13 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 	}
 
 	if harvesterv1.UpgradeEnded.IsTrue(upgradeLog) {
-		logrus.Info("Stop collecting logs")
-
 		upgradeLogState, ok := upgradeLog.Annotations[upgradeLogStateAnnotation]
 		if !ok {
 			return upgradeLog, nil
 		}
 		if upgradeLogState == upgradeLogStateCollecting {
-			if err := h.cleanup(upgradeLog, true); err != nil {
+			logrus.Info("Stop collecting logs")
+			if err := h.stopCollect(upgradeLog); err != nil {
 				return upgradeLog, err
 			}
 			toUpdate := upgradeLog.DeepCopy()
@@ -286,8 +286,7 @@ func (h *handler) OnUpgradeLogRemove(_ string, upgradeLog *harvesterv1.UpgradeLo
 		return nil, nil
 	}
 	logrus.Infof("Delete UpgradeLog %s/%s", upgradeLog.Namespace, upgradeLog.Name)
-
-	return upgradeLog, h.cleanup(upgradeLog, false)
+	return upgradeLog, h.cleanup(upgradeLog)
 }
 
 func (h *handler) OnClusterFlowChange(_ string, clusterFlow *loggingv1.ClusterFlow) (*loggingv1.ClusterFlow, error) {
@@ -551,7 +550,40 @@ func (h *handler) OnStatefulSetChange(_ string, statefulSet *appsv1.StatefulSet)
 	return statefulSet, err
 }
 
-func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog, retainLog bool) error {
+func (h *handler) OnUpgradeChange(_ string, upgrade *harvesterv1.Upgrade) (*harvesterv1.Upgrade, error) {
+	if upgrade == nil || upgrade.DeletionTimestamp != nil || upgrade.Labels == nil || upgrade.Namespace != upgradeNamespace {
+		return upgrade, nil
+	}
+	logrus.Debugf("Processing Upgrade %s/%s", upgrade.Namespace, upgrade.Name)
+
+	upgradeLogName := upgrade.Status.UpgradeLog
+	if upgradeLogName == "" {
+		logrus.Info("No related UpgradeLog resource found, skip purging")
+		return upgrade, nil
+	}
+	upgradeLog, err := h.upgradeLogCache.Get(upgradeLogNamespace, upgradeLogName)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			logrus.Debugf("The corresponding UpgradeLog %s/%s is not found, skip purging", upgradeLogNamespace, upgradeLogName)
+			return upgrade, nil
+		}
+		return nil, err
+	}
+
+	if upgrade.Labels[upgradeReadMessageLabel] == "true" {
+		logrus.Infof("Purging UpgradeLog %s/%s and its relevant sub-components", upgradeLog.Namespace, upgradeLog.Name)
+		if err := h.upgradeLogClient.Delete(upgradeLog.Namespace, upgradeLog.Name, &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			return upgrade, err
+		}
+		toUpdate := upgrade.DeepCopy()
+		toUpdate.Status.UpgradeLog = ""
+		return h.upgradeClient.Update(toUpdate)
+	}
+
+	return upgrade, nil
+}
+
+func (h *handler) stopCollect(upgradeLog *harvesterv1.UpgradeLog) error {
 	logrus.Info("Tearing down the logging infrastructure for upgrade procedure")
 
 	if err := h.clusterFlowClient.Delete(upgradeLogNamespace, name.SafeConcatName(upgradeLog.Name, FlowComponent), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
@@ -567,30 +599,14 @@ func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog, retainLog bool) er
 		return err
 	}
 
-	if !retainLog {
-		sets := labels.Set{
-			harvesterUpgradeLogLabel: upgradeLog.Name,
-		}
-		jobs, err := h.jobCache.List(upgradeLogNamespace, sets.AsSelector())
-		if err != nil {
-			return err
-		}
-		for _, job := range jobs {
-			deletePropagation := metav1.DeletePropagationBackground
-			if err := h.jobClient.Delete(job.Namespace, job.Name, &metav1.DeleteOptions{PropagationPolicy: &deletePropagation}); err != nil {
-				return err
-			}
-		}
+	return nil
+}
 
-		if harvesterv1.DownloadReady.IsTrue(upgradeLog) {
-			if err := h.deploymentClient.Delete(upgradeLogNamespace, name.SafeConcatName(upgradeLog.Name, DownloaderComponent), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-				return err
-			}
-		}
+func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog) error {
+	logrus.Info("Removing logging-operator ManagedChart if any")
 
-		if err := h.pvcClient.Delete(upgradeLogNamespace, name.SafeConcatName(upgradeLog.Name, LogArchiveComponent), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-			return err
-		}
+	if err := h.managedChartClient.Delete(managedChartNamespace, name.SafeConcatName(upgradeLog.Name, OperatorComponent), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return err
 	}
 
 	return nil

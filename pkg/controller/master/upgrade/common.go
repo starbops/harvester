@@ -134,6 +134,9 @@ func prepareUpgradeLog(upgrade *harvesterv1.Upgrade) *harvesterv1.UpgradeLog {
 			Labels: map[string]string{
 				harvesterUpgradeLabel: upgrade.Name,
 			},
+			OwnerReferences: []metav1.OwnerReference{
+				upgradeReference(upgrade),
+			},
 		},
 		Spec: harvesterv1.UpgradeLogSpec{
 			Upgrade: upgrade.Name,

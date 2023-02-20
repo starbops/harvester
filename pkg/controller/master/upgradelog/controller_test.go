@@ -446,6 +446,83 @@ func TestHandler_OnStatefulSetChange(t *testing.T) {
 	}
 }
 
+func TestHandler_OnUpgradeChange(t *testing.T) {
+	type input struct {
+		key        string
+		upgrade    *harvesterv1.Upgrade
+		upgradeLog *harvesterv1.UpgradeLog
+	}
+	type output struct {
+		upgrade    *harvesterv1.Upgrade
+		upgradeLog *harvesterv1.UpgradeLog
+		err        error
+	}
+	var testCases = []struct {
+		name     string
+		given    input
+		expected output
+	}{
+		{
+			name: "The upgrade is labeled with read-message, should therefore purge the relevant UpgradeLog and its sub-components",
+			given: input{
+				key: testUpgradeName,
+				upgrade: newTestUpgradeBuilder().
+					WithLabel(upgradeReadMessageLabel, "true").
+					UpgradeLogStatus(testUpgradeLogName).Build(),
+				upgradeLog: newTestUpgradeLogBuilder().Build(),
+			},
+			expected: output{
+				upgrade: newTestUpgradeBuilder().
+					WithLabel(upgradeReadMessageLabel, "true").Build(),
+			},
+		},
+		{
+			name: "The upgrade is labeled with other labels, should therefore leave the relevant UpgradeLog untouched",
+			given: input{
+				key:        testUpgradeName,
+				upgrade:    newTestUpgradeBuilder().WithLabel(upgradeReadMessageLabel, "fake").Build(),
+				upgradeLog: newTestUpgradeLogBuilder().Build(),
+			},
+			expected: output{
+				upgrade:    newTestUpgradeBuilder().WithLabel(upgradeReadMessageLabel, "fake").Build(),
+				upgradeLog: newTestUpgradeLogBuilder().Build(),
+			},
+		},
+	}
+	for _, tc := range testCases {
+		var clientset = fake.NewSimpleClientset(tc.given.upgrade, tc.given.upgradeLog)
+
+		var handler = &handler{
+			namespace:        upgradeNamespace,
+			upgradeClient:    fakeclients.UpgradeClient(clientset.HarvesterhciV1beta1().Upgrades),
+			upgradeCache:     fakeclients.UpgradeCache(clientset.HarvesterhciV1beta1().Upgrades),
+			upgradeLogClient: fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
+			upgradeLogCache:  fakeclients.UpgradeLogCache(clientset.HarvesterhciV1beta1().UpgradeLogs),
+		}
+
+		var actual output
+		actual.upgrade, actual.err = handler.OnUpgradeChange(tc.given.key, tc.given.upgrade)
+
+		if tc.expected.upgrade != nil {
+			var err error
+			actual.upgrade, err = handler.upgradeCache.Get(upgradeNamespace, testUpgradeName)
+			assert.Nil(t, err)
+			assert.Equal(t, tc.expected.upgrade, actual.upgrade, "case %q", tc.name)
+		}
+
+		if tc.expected.upgradeLog != nil {
+			var err error
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(upgradeLogNamespace, testUpgradeLogName)
+			assert.Nil(t, err)
+			assert.Equal(t, tc.expected.upgradeLog, actual.upgradeLog, "case %q", tc.name)
+		} else {
+			var err error
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(upgradeLogNamespace, testUpgradeLogName)
+			assert.True(t, apierrors.IsNotFound(err), "case %q", tc.name)
+		}
+	}
+}
+
 func TestHandler_OnUpgradeLogChange(t *testing.T) {
 	type input struct {
 		key           string
