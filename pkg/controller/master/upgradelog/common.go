@@ -112,9 +112,9 @@ func prepareOperator(upgradeLog *harvesterv1.UpgradeLog) *mgmtv3.ManagedChart {
 			Namespace: managedChartNamespace,
 		},
 		Spec: mgmtv3.ManagedChartSpec{
-			Chart:            "rancher-logging",
+			Chart:            rancherLoggingChart,
 			ReleaseName:      operatorName,
-			DefaultNamespace: upgradeLogNamespace,
+			DefaultNamespace: operatorNamespace,
 			RepoName:         "harvester-charts",
 			Targets: []v1alpha1.BundleTarget{
 				{

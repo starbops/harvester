@@ -33,6 +33,8 @@ const (
 	downloaderImageRepository           = "rancher/harvester-upgrade"
 	addonNamespace                      = "cattle-logging-system"
 	managedChartNamespace               = "fleet-local"
+	operatorNamespace                   = "cattle-logging-system"
+	rancherLoggingChart                 = "rancher-logging"
 	rancherLoggingAddonName             = "rancher-logging"
 	rancherLoggingManagedChartName      = "rancher-logging"
 
