@@ -157,13 +157,6 @@ func prepareLogging(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Logging {
 					Repository: fluentBitImageRepo,
 					Tag:        fluentBitImageTag,
 				},
-				Tolerations: []corev1.Toleration{
-					{
-						Key:      "node-role.kubernetes.io/master",
-						Operator: corev1.TolerationOpExists,
-						Effect:   corev1.TaintEffectNoSchedule,
-					},
-				},
 			},
 			FluentdSpec: &loggingv1.FluentdSpec{
 				Labels: map[string]string{
@@ -192,6 +185,11 @@ func prepareLogging(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Logging {
 								},
 							},
 						},
+					},
+				},
+				Scaling: &loggingv1.FluentdScaling{
+					Drain: loggingv1.FluentdDrainConfig{
+						Enabled: true,
 					},
 				},
 				FluentOutLogrotate: &loggingv1.FluentOutLogrotate{
@@ -319,10 +317,11 @@ func prepareClusterOutput(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Cluster
 					Path:   "/archive/logs/${tag}",
 					Append: true,
 					Buffer: &output.Buffer{
-						FlushMode:     "immediate",
-						Timekey:       "1d",
-						TimekeyWait:   "0m",
-						TimekeyUseUtc: true,
+						FlushAtShutdown: true,
+						FlushMode:       "immediate",
+						Timekey:         "1d",
+						TimekeyWait:     "0m",
+						TimekeyUseUtc:   true,
 					},
 				},
 			},
@@ -943,6 +942,18 @@ func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, imageVersion, archiv
 									ClaimName: name.SafeConcatName(upgradeLog.Name, LogArchiveComponent),
 								},
 							},
+						},
+					},
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      "kubevirt.io/drain",
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoSchedule,
+						},
+						{
+							Key:      "node.kubernetes.io/unschedulable",
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoSchedule,
 						},
 					},
 					RestartPolicy: corev1.RestartPolicyOnFailure,
