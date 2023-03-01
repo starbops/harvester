@@ -112,7 +112,8 @@ func (h *upgradeHandler) OnChanged(key string, upgrade *harvesterv1.Upgrade) (*h
 			return h.upgradeClient.Update(toUpdate)
 		}
 		logrus.Info("Enabling upgrade observability")
-		if upgradeLog, err := h.upgradeLogClient.Create(prepareUpgradeLog(upgrade)); err != nil && !apierrors.IsAlreadyExists(err) {
+		upgradeLog, err := h.upgradeLogClient.Create(prepareUpgradeLog(upgrade))
+		if err != nil && !apierrors.IsAlreadyExists(err) {
 			logrus.Warn("Failed to create the upgradeLog resource")
 			setLogReadyCondition(toUpdate, corev1.ConditionFalse, err.Error(), "")
 		} else {

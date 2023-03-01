@@ -92,7 +92,8 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		harvesterv1.LoggingOperatorDeployed.CreateUnknownIfNotExists(toUpdate)
 
 		// Detect rancher-logging Addon
-		if addon, err := h.addonCache.Get(util.CattleLoggingSystemNamespaceName, util.RancherLoggingName); err != nil {
+		addon, err := h.addonCache.Get(util.CattleLoggingSystemNamespaceName, util.RancherLoggingName)
+		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				return nil, err
 			}
@@ -106,7 +107,8 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		}
 
 		// Detect the rancher-logging ManagedChart
-		if managedChart, err := h.managedChartCache.Get(util.FleetLocalNamespaceName, util.RancherLoggingName); err != nil {
+		managedChart, err := h.managedChartCache.Get(util.FleetLocalNamespaceName, util.RancherLoggingName)
+		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				return nil, err
 			}
@@ -158,13 +160,14 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 			return upgradeLog, nil
 		}
 
-		if isInfraReady := (fluentBitAnnotation == upgradeLogFluentBitReady) && (fluentdAnnotation == upgradeLogFluentdReady); isInfraReady {
-			logrus.Info("Logging infrastructure is ready")
-			setInfraScaffoldedCondition(toUpdate, corev1.ConditionTrue, "", "")
-			return h.upgradeLogClient.Update(toUpdate)
+		isInfraReady := (fluentBitAnnotation == upgradeLogFluentBitReady) && (fluentdAnnotation == upgradeLogFluentdReady)
+		if !isInfraReady {
+			return upgradeLog, nil
 		}
 
-		return upgradeLog, nil
+		logrus.Info("Logging infrastructure is ready")
+		setInfraScaffoldedCondition(toUpdate, corev1.ConditionTrue, "", "")
+		return h.upgradeLogClient.Update(toUpdate)
 	}
 
 	if harvesterv1.InfraScaffolded.IsTrue(upgradeLog) && harvesterv1.UpgradeLogReady.IsUnknown(upgradeLog) {
@@ -175,7 +178,8 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		clusterFlowAnnotation := upgradeLog.Annotations[upgradeLogClusterFlowAnnotation]
 		clusterOutputAnnotation := upgradeLog.Annotations[upgradeLogClusterOutputAnnotation]
 
-		if isLogReady := (clusterOutputAnnotation == upgradeLogClusterOutputReady) && (clusterFlowAnnotation == upgradeLogClusterFlowReady); isLogReady {
+		isLogReady := (clusterOutputAnnotation == upgradeLogClusterOutputReady) && (clusterFlowAnnotation == upgradeLogClusterFlowReady)
+		if isLogReady {
 			logrus.Info("Log-collecting rules exist and are activated")
 			setUpgradeLogReadyCondition(toUpdate, corev1.ConditionTrue, "", "")
 			return h.upgradeLogClient.Update(toUpdate)
@@ -571,16 +575,21 @@ func (h *handler) OnUpgradeChange(_ string, upgrade *harvesterv1.Upgrade) (*harv
 func (h *handler) stopCollect(upgradeLog *harvesterv1.UpgradeLog) error {
 	logrus.Info("Tearing down the logging infrastructure for upgrade procedure")
 
-	if err := h.clusterFlowClient.Delete(util.HarvesterSystemNamespaceName, name.SafeConcatName(upgradeLog.Name, util.UpgradeLogFlowComponent), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+	var err error
+	err = h.clusterFlowClient.Delete(util.HarvesterSystemNamespaceName, name.SafeConcatName(upgradeLog.Name, util.UpgradeLogFlowComponent), &metav1.DeleteOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
-	if err := h.clusterOutputClient.Delete(util.HarvesterSystemNamespaceName, name.SafeConcatName(upgradeLog.Name, util.UpgradeLogOutputComponent), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+	err = h.clusterOutputClient.Delete(util.HarvesterSystemNamespaceName, name.SafeConcatName(upgradeLog.Name, util.UpgradeLogOutputComponent), &metav1.DeleteOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
-	if err := h.loggingClient.Delete(name.SafeConcatName(upgradeLog.Name, util.UpgradeLogInfraComponent), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+	err = h.loggingClient.Delete(name.SafeConcatName(upgradeLog.Name, util.UpgradeLogInfraComponent), &metav1.DeleteOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
-	if err := h.managedChartClient.Delete(util.FleetLocalNamespaceName, name.SafeConcatName(upgradeLog.Name, util.UpgradeLogOperatorComponent), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+	err = h.managedChartClient.Delete(util.FleetLocalNamespaceName, name.SafeConcatName(upgradeLog.Name, util.UpgradeLogOperatorComponent), &metav1.DeleteOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 
@@ -590,7 +599,9 @@ func (h *handler) stopCollect(upgradeLog *harvesterv1.UpgradeLog) error {
 func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog) error {
 	logrus.Info("Removing logging-operator ManagedChart if any")
 
-	if err := h.managedChartClient.Delete(util.FleetLocalNamespaceName, name.SafeConcatName(upgradeLog.Name, util.UpgradeLogOperatorComponent), &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+	var err error
+	err = h.managedChartClient.Delete(util.FleetLocalNamespaceName, name.SafeConcatName(upgradeLog.Name, util.UpgradeLogOperatorComponent), &metav1.DeleteOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 
