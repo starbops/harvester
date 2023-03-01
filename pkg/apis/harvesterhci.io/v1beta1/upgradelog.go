@@ -28,7 +28,7 @@ type UpgradeLog struct {
 
 type UpgradeLogSpec struct {
 	// +kubebuilder:validation:Required
-	UpgradeName string `json:"upgrade,omitempty"`
+	UpgradeName string `json:"upgradeName,omitempty"`
 }
 
 type UpgradeLogStatus struct {

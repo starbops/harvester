@@ -211,7 +211,6 @@ API rule violation: list_type_missing,kubevirt.io/containerized-data-importer-ap
 API rule violation: names_match,github.com/harvester/harvester-network-controller/pkg/apis/network.harvesterhci.io/v1beta1,LinkStatus,IPV4Address
 API rule violation: names_match,github.com/harvester/harvester-network-controller/pkg/apis/network.harvesterhci.io/v1beta1,NIC,UsedByMgmtNetwork
 API rule violation: names_match,github.com/harvester/harvester-network-controller/pkg/apis/network.harvesterhci.io/v1beta1,NodeNetworkStatus,NICs
-API rule violation: names_match,github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1,UpgradeLogSpec,UpgradeName
 API rule violation: names_match,github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1,VirtualMachineBackupStatus,SourceSpec
 API rule violation: names_match,github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1,VirtualMachineImageStatus,AppliedURL
 API rule violation: names_match,github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1,VirtualMachineRestoreStatus,VolumeRestores
