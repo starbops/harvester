@@ -415,41 +415,6 @@ func getDefaultTolerations() []corev1.Toleration {
 	}
 }
 
-const (
-	testJobName        = "test-job"
-	testPlanName       = "test-plan"
-	testNodeName       = "test-node"
-	testUpgradeName    = "test-upgrade"
-	testUpgradeLogName = "test-upgrade-upgradelog"
-	testVersion        = "test-version"
-	testUpgradeImage   = "test-upgrade-image"
-	testPlanHash       = "test-hash"
-)
-
-func newTestNodeJobBuilder() *jobBuilder {
-	return newJobBuilder(testJobName).
-		WithLabel(upgradePlanLabel, testPlanName).
-		WithLabel(upgradeNodeLabel, testNodeName)
-}
-
-func newTestPlanBuilder() *planBuilder {
-	return newPlanBuilder(testPlanName).
-		Version(testVersion).
-		WithLabel(harvesterUpgradeLabel, testUpgradeName).
-		Hash(testPlanHash)
-}
-
-func newTestChartJobBuilder() *jobBuilder {
-	return newJobBuilder(testJobName).
-		WithLabel(harvesterUpgradeComponentLabel, manifestComponent)
-}
-
-func newTestUpgradeBuilder() *upgradeBuilder {
-	return newUpgradeBuilder(testUpgradeName).
-		WithLabel(harvesterLatestUpgradeLabel, "true").
-		Version(testVersion)
-}
-
 type jobBuilder struct {
 	job *batchv1.Job
 }
