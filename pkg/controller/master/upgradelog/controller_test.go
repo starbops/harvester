@@ -40,17 +40,17 @@ const (
 
 func newTestClusterFlowBuilder() *clusterFlowBuilder {
 	return newClusterFlowBuilder(testClusterFlowName).
-		WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName)
+		WithLabel(util.LabelUpgradeLog, testUpgradeLogName)
 }
 
 func newTestClusterOutputBuilder() *clusterOutputBuilder {
 	return newClusterOutputBuilder(testClusterOutputName).
-		WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName)
+		WithLabel(util.LabelUpgradeLog, testUpgradeLogName)
 }
 
 func newTestDaemonSetBuilder() *daemonSetBuilder {
 	return newDaemonSetBuilder(testDaemonSetName).
-		WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName)
+		WithLabel(util.LabelUpgradeLog, testUpgradeLogName)
 }
 
 func newTestJobBuilder() *jobBuilder {
@@ -59,7 +59,7 @@ func newTestJobBuilder() *jobBuilder {
 
 func newTestLoggingBuilder() *loggingBuilder {
 	return newLoggingBuilder(testLoggingName).
-		WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName)
+		WithLabel(util.LabelUpgradeLog, testUpgradeLogName)
 }
 
 func newTestManagedChartBuilder() *managedChartBuilder {
@@ -68,12 +68,12 @@ func newTestManagedChartBuilder() *managedChartBuilder {
 
 func newTestPvcBuilder() *pvcBuilder {
 	return newPvcBuilder(testPvcName).
-		WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName)
+		WithLabel(util.LabelUpgradeLog, testUpgradeLogName)
 }
 
 func newTestStatefulSetBuilder() *statefulSetBuilder {
 	return newStatefulSetBuilder(testStatefulSetName).
-		WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName)
+		WithLabel(util.LabelUpgradeLog, testUpgradeLogName)
 }
 
 func newTestUpgradeBuilder() *upgradeBuilder {
@@ -106,7 +106,7 @@ func TestHandler_OnClusterFlowChange(t *testing.T) {
 			name: "The log-collecting rule ClusterFlow is inactive, should therefore keep the respective UpgradeLog resource untouched",
 			given: input{
 				key:         testClusterFlowName,
-				clusterFlow: newTestClusterFlowBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Build(),
+				clusterFlow: newTestClusterFlowBuilder().WithLabel(util.LabelUpgradeLog, testUpgradeLogName).Build(),
 				upgradeLog:  newTestUpgradeLogBuilder().Build(),
 			},
 			expected: output{
@@ -117,7 +117,7 @@ func TestHandler_OnClusterFlowChange(t *testing.T) {
 			name: "The log-collecting rule ClusterFlow is active, should therefore set the respective annotation",
 			given: input{
 				key:         testClusterFlowName,
-				clusterFlow: newTestClusterFlowBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Active().Build(),
+				clusterFlow: newTestClusterFlowBuilder().WithLabel(util.LabelUpgradeLog, testUpgradeLogName).Active().Build(),
 				upgradeLog:  newTestUpgradeLogBuilder().Build(),
 			},
 			expected: output{
@@ -129,7 +129,7 @@ func TestHandler_OnClusterFlowChange(t *testing.T) {
 		var clientset = fake.NewSimpleClientset(tc.given.upgradeLog)
 
 		var handler = &handler{
-			namespace:        util.HarvesterUpgradeLogNamespace,
+			namespace:        util.HarvesterSystemNamespaceName,
 			upgradeLogClient: fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
 			upgradeLogCache:  fakeclients.UpgradeLogCache(clientset.HarvesterhciV1beta1().UpgradeLogs),
 		}
@@ -139,7 +139,7 @@ func TestHandler_OnClusterFlowChange(t *testing.T) {
 
 		if tc.expected.upgradeLog != nil {
 			var err error
-			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeLogName)
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterSystemNamespaceName, testUpgradeLogName)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.upgradeLog, actual.upgradeLog, "case %q", tc.name)
 		}
@@ -166,7 +166,7 @@ func TestHandler_OnClusterOutputChange(t *testing.T) {
 			name: "The log-collecting rule ClusterOutput is inactive, should therefore keep the respective UpgradeLog resource untouched",
 			given: input{
 				key:           testClusterOutputName,
-				clusterOutput: newTestClusterOutputBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Build(),
+				clusterOutput: newTestClusterOutputBuilder().WithLabel(util.LabelUpgradeLog, testUpgradeLogName).Build(),
 				upgradeLog:    newTestUpgradeLogBuilder().Build(),
 			},
 			expected: output{
@@ -177,7 +177,7 @@ func TestHandler_OnClusterOutputChange(t *testing.T) {
 			name: "The log-collecting rule ClusterOutput is active, should therefore set the respective annotation",
 			given: input{
 				key:           testClusterOutputName,
-				clusterOutput: newTestClusterOutputBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Active().Build(),
+				clusterOutput: newTestClusterOutputBuilder().WithLabel(util.LabelUpgradeLog, testUpgradeLogName).Active().Build(),
 				upgradeLog:    newTestUpgradeLogBuilder().Build(),
 			},
 			expected: output{
@@ -189,7 +189,7 @@ func TestHandler_OnClusterOutputChange(t *testing.T) {
 		var clientset = fake.NewSimpleClientset(tc.given.upgradeLog)
 
 		var handler = &handler{
-			namespace:        util.HarvesterUpgradeLogNamespace,
+			namespace:        util.HarvesterSystemNamespaceName,
 			upgradeLogClient: fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
 			upgradeLogCache:  fakeclients.UpgradeLogCache(clientset.HarvesterhciV1beta1().UpgradeLogs),
 		}
@@ -199,7 +199,7 @@ func TestHandler_OnClusterOutputChange(t *testing.T) {
 
 		if tc.expected.upgradeLog != nil {
 			var err error
-			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeLogName)
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterSystemNamespaceName, testUpgradeLogName)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.upgradeLog, actual.upgradeLog, "case %q", tc.name)
 		}
@@ -226,7 +226,7 @@ func TestHandler_OnDaemonSetChange(t *testing.T) {
 			name: "The fluent-bit DaemonSet is not ready, should therefore keep the respective UpgradeLog resource untouched",
 			given: input{
 				key:        testDaemonSetName,
-				daemonSet:  newTestDaemonSetBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).NotReady().Build(),
+				daemonSet:  newTestDaemonSetBuilder().WithLabel(util.LabelUpgradeLog, testUpgradeLogName).NotReady().Build(),
 				upgradeLog: newTestUpgradeLogBuilder().Build(),
 			},
 			expected: output{
@@ -237,7 +237,7 @@ func TestHandler_OnDaemonSetChange(t *testing.T) {
 			name: "The fluent-bit DaemonSet is ready, should therefore set the respective annotation ",
 			given: input{
 				key:        testDaemonSetName,
-				daemonSet:  newTestDaemonSetBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Ready().Build(),
+				daemonSet:  newTestDaemonSetBuilder().WithLabel(util.LabelUpgradeLog, testUpgradeLogName).Ready().Build(),
 				upgradeLog: newTestUpgradeLogBuilder().Build(),
 			},
 			expected: output{
@@ -249,7 +249,7 @@ func TestHandler_OnDaemonSetChange(t *testing.T) {
 		var clientset = fake.NewSimpleClientset(tc.given.upgradeLog)
 
 		var handler = &handler{
-			namespace:        util.HarvesterUpgradeLogNamespace,
+			namespace:        util.HarvesterSystemNamespaceName,
 			upgradeLogClient: fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
 			upgradeLogCache:  fakeclients.UpgradeLogCache(clientset.HarvesterhciV1beta1().UpgradeLogs),
 		}
@@ -259,7 +259,7 @@ func TestHandler_OnDaemonSetChange(t *testing.T) {
 
 		if tc.expected.upgradeLog != nil {
 			var err error
-			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeLogName)
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterSystemNamespaceName, testUpgradeLogName)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.upgradeLog, actual.upgradeLog, "case %q", tc.name)
 		}
@@ -286,7 +286,7 @@ func TestHandler_OnJobChange(t *testing.T) {
 			name: "The log-packager Job is still running, should therefore set DownloadReady to False",
 			given: input{
 				key:        testJobName,
-				job:        newTestJobBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).WithAnnotation(archiveNameAnnotation, testArchiveName).Build(),
+				job:        newTestJobBuilder().WithLabel(util.LabelUpgradeLog, testUpgradeLogName).WithAnnotation(util.AnnotationArchiveName, testArchiveName).Build(),
 				upgradeLog: newTestUpgradeLogBuilder().Archive(testArchiveName, 0, "", false).Build(),
 			},
 			expected: output{
@@ -297,7 +297,7 @@ func TestHandler_OnJobChange(t *testing.T) {
 			name: "The log-packager Job is done, should therefore set DownloadReady to True",
 			given: input{
 				key:        testJobName,
-				job:        newTestJobBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).WithAnnotation(archiveNameAnnotation, testArchiveName).Done().Build(),
+				job:        newTestJobBuilder().WithLabel(util.LabelUpgradeLog, testUpgradeLogName).WithAnnotation(util.AnnotationArchiveName, testArchiveName).Done().Build(),
 				upgradeLog: newTestUpgradeLogBuilder().Archive(testArchiveName, 0, "", false).Build(),
 			},
 			expected: output{
@@ -309,7 +309,7 @@ func TestHandler_OnJobChange(t *testing.T) {
 		var clientset = fake.NewSimpleClientset(tc.given.upgradeLog)
 
 		var handler = &handler{
-			namespace:        util.HarvesterUpgradeLogNamespace,
+			namespace:        util.HarvesterSystemNamespaceName,
 			upgradeLogClient: fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
 			upgradeLogCache:  fakeclients.UpgradeLogCache(clientset.HarvesterhciV1beta1().UpgradeLogs),
 		}
@@ -319,7 +319,7 @@ func TestHandler_OnJobChange(t *testing.T) {
 
 		if tc.expected.upgradeLog != nil {
 			var err error
-			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeLogName)
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterSystemNamespaceName, testUpgradeLogName)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.upgradeLog, actual.upgradeLog, "case %q", tc.name)
 		}
@@ -346,7 +346,7 @@ func TestHandler_OnManagedChartChange(t *testing.T) {
 			name: "The logging-operator ManagedChart is not ready, should therefore keep the respective UpgradeLog resource untouched",
 			given: input{
 				key:          testManagedChartName,
-				managedChart: newTestManagedChartBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Build(),
+				managedChart: newTestManagedChartBuilder().WithLabel(util.LabelUpgradeLog, testUpgradeLogName).Build(),
 				upgradeLog:   newTestUpgradeLogBuilder().Build(),
 			},
 			expected: output{
@@ -357,7 +357,7 @@ func TestHandler_OnManagedChartChange(t *testing.T) {
 			name: "The logging-operator ManagedChart is ready, should therefore reflect on the UpgradeLog resource",
 			given: input{
 				key:          testManagedChartName,
-				managedChart: newTestManagedChartBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Ready().Build(),
+				managedChart: newTestManagedChartBuilder().WithLabel(util.LabelUpgradeLog, testUpgradeLogName).Ready().Build(),
 				upgradeLog:   newTestUpgradeLogBuilder().Build(),
 			},
 			expected: output{
@@ -370,7 +370,7 @@ func TestHandler_OnManagedChartChange(t *testing.T) {
 		var clientset = fake.NewSimpleClientset(tc.given.upgradeLog)
 
 		var handler = &handler{
-			namespace:        util.HarvesterUpgradeLogNamespace,
+			namespace:        util.HarvesterSystemNamespaceName,
 			upgradeLogClient: fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
 			upgradeLogCache:  fakeclients.UpgradeLogCache(clientset.HarvesterhciV1beta1().UpgradeLogs),
 		}
@@ -380,7 +380,7 @@ func TestHandler_OnManagedChartChange(t *testing.T) {
 
 		if tc.expected.upgradeLog != nil {
 			var err error
-			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeLogName)
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterSystemNamespaceName, testUpgradeLogName)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.upgradeLog, actual.upgradeLog, "case %q", tc.name)
 		}
@@ -407,7 +407,7 @@ func TestHandler_OnStatefulSetChange(t *testing.T) {
 			name: "The fluentd StatefulSet is not ready, should therefore keep the respective UpgradeLog resource untouched",
 			given: input{
 				key:         testStatefulSetName,
-				statefulSet: newTestStatefulSetBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Replicas(1).Build(),
+				statefulSet: newTestStatefulSetBuilder().WithLabel(util.LabelUpgradeLog, testUpgradeLogName).Replicas(1).Build(),
 				upgradeLog:  newTestUpgradeLogBuilder().Build(),
 			},
 			expected: output{
@@ -418,7 +418,7 @@ func TestHandler_OnStatefulSetChange(t *testing.T) {
 			name: "The fluetd StatefulSet is ready, should therefore set the respective annotation ",
 			given: input{
 				key:         testStatefulSetName,
-				statefulSet: newTestStatefulSetBuilder().WithLabel(harvesterUpgradeLogLabel, testUpgradeLogName).Replicas(1).ReadyReplicas(1).Build(),
+				statefulSet: newTestStatefulSetBuilder().WithLabel(util.LabelUpgradeLog, testUpgradeLogName).Replicas(1).ReadyReplicas(1).Build(),
 				upgradeLog:  newTestUpgradeLogBuilder().Build(),
 			},
 			expected: output{
@@ -430,7 +430,7 @@ func TestHandler_OnStatefulSetChange(t *testing.T) {
 		var clientset = fake.NewSimpleClientset(tc.given.upgradeLog)
 
 		var handler = &handler{
-			namespace:        util.HarvesterUpgradeLogNamespace,
+			namespace:        util.HarvesterSystemNamespaceName,
 			upgradeLogClient: fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
 			upgradeLogCache:  fakeclients.UpgradeLogCache(clientset.HarvesterhciV1beta1().UpgradeLogs),
 		}
@@ -440,7 +440,7 @@ func TestHandler_OnStatefulSetChange(t *testing.T) {
 
 		if tc.expected.upgradeLog != nil {
 			var err error
-			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeLogName)
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterSystemNamespaceName, testUpgradeLogName)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.upgradeLog, actual.upgradeLog, "case %q", tc.name)
 		}
@@ -468,24 +468,24 @@ func TestHandler_OnUpgradeChange(t *testing.T) {
 			given: input{
 				key: testUpgradeName,
 				upgrade: newTestUpgradeBuilder().
-					WithLabel(upgradeReadMessageLabel, "true").
+					WithLabel(util.LabelUpgradeReadMessage, "true").
 					UpgradeLogStatus(testUpgradeLogName).Build(),
 				upgradeLog: newTestUpgradeLogBuilder().Build(),
 			},
 			expected: output{
 				upgrade: newTestUpgradeBuilder().
-					WithLabel(upgradeReadMessageLabel, "true").Build(),
+					WithLabel(util.LabelUpgradeReadMessage, "true").Build(),
 			},
 		},
 		{
 			name: "The upgrade is labeled with other labels, should therefore leave the relevant UpgradeLog untouched",
 			given: input{
 				key:        testUpgradeName,
-				upgrade:    newTestUpgradeBuilder().WithLabel(upgradeReadMessageLabel, "fake").Build(),
+				upgrade:    newTestUpgradeBuilder().WithLabel(util.LabelUpgradeReadMessage, "fake").Build(),
 				upgradeLog: newTestUpgradeLogBuilder().Build(),
 			},
 			expected: output{
-				upgrade:    newTestUpgradeBuilder().WithLabel(upgradeReadMessageLabel, "fake").Build(),
+				upgrade:    newTestUpgradeBuilder().WithLabel(util.LabelUpgradeReadMessage, "fake").Build(),
 				upgradeLog: newTestUpgradeLogBuilder().Build(),
 			},
 		},
@@ -494,7 +494,7 @@ func TestHandler_OnUpgradeChange(t *testing.T) {
 		var clientset = fake.NewSimpleClientset(tc.given.upgrade, tc.given.upgradeLog)
 
 		var handler = &handler{
-			namespace:        upgradeNamespace,
+			namespace:        util.HarvesterSystemNamespaceName,
 			upgradeClient:    fakeclients.UpgradeClient(clientset.HarvesterhciV1beta1().Upgrades),
 			upgradeCache:     fakeclients.UpgradeCache(clientset.HarvesterhciV1beta1().Upgrades),
 			upgradeLogClient: fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
@@ -506,19 +506,19 @@ func TestHandler_OnUpgradeChange(t *testing.T) {
 
 		if tc.expected.upgrade != nil {
 			var err error
-			actual.upgrade, err = handler.upgradeCache.Get(upgradeNamespace, testUpgradeName)
+			actual.upgrade, err = handler.upgradeCache.Get(util.HarvesterSystemNamespaceName, testUpgradeName)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.upgrade, actual.upgrade, "case %q", tc.name)
 		}
 
 		if tc.expected.upgradeLog != nil {
 			var err error
-			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeLogName)
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterSystemNamespaceName, testUpgradeLogName)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.upgradeLog, actual.upgradeLog, "case %q", tc.name)
 		} else {
 			var err error
-			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeLogName)
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterSystemNamespaceName, testUpgradeLogName)
 			assert.True(t, apierrors.IsNotFound(err), "case %q", tc.name)
 		}
 	}
@@ -581,7 +581,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			name: "There exists an enabled rancher-logging Addon, therefore skip the ManagedChart installation",
 			given: input{
 				key:   testUpgradeLogName,
-				addon: newAddonBuilder(rancherLoggingAddonName).Enable().Build(),
+				addon: newAddonBuilder(util.RancherLoggingName).Enable().Build(),
 				upgradeLog: newTestUpgradeLogBuilder().
 					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").Build(),
 			},
@@ -595,7 +595,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			name: "There exists a ready rancher-logging ManagedChart, therefore skip the ManagedChart installation",
 			given: input{
 				key:          testUpgradeLogName,
-				managedChart: newManagedChartBuilder(rancherLoggingManagedChartName).Ready().Build(),
+				managedChart: newManagedChartBuilder(util.RancherLoggingName).Ready().Build(),
 				upgradeLog: newTestUpgradeLogBuilder().
 					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").Build(),
 			},
@@ -728,7 +728,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			},
 			expected: output{
 				upgrade: newTestUpgradeBuilder().
-					WithLabel(upgradeStateLabel, UpgradeStateLoggingInfraPrepared).
+					WithLabel(util.LabelUpgradeState, util.UpgradeStateLoggingInfraPrepared).
 					LogReadyCondition(corev1.ConditionTrue, "", "").Build(),
 				upgradeLog: newTestUpgradeLogBuilder().
 					WithAnnotation(upgradeLogStateAnnotation, upgradeLogStateCollecting).
@@ -821,7 +821,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 		}
 
 		var handler = &handler{
-			namespace:           util.HarvesterUpgradeLogNamespace,
+			namespace:           util.HarvesterSystemNamespaceName,
 			addonCache:          fakeclients.AddonCache(clientset.HarvesterhciV1beta1().Addons),
 			clusterFlowClient:   fakeclients.ClusterFlowClient(clientset.LoggingV1beta1().ClusterFlows),
 			clusterOutputClient: fakeclients.ClusterOutputClient(clientset.LoggingV1beta1().ClusterOutputs),
@@ -842,12 +842,12 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			// HACK: cannot create ClusterFlow with namespace specified using fake client so we skip the field here
 			tc.expected.clusterFlow.Namespace = ""
 			var err error
-			actual.clusterFlow, err = handler.clusterFlowClient.Get(util.HarvesterUpgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, FlowComponent), metav1.GetOptions{})
+			actual.clusterFlow, err = handler.clusterFlowClient.Get(util.HarvesterSystemNamespaceName, name.SafeConcatName(testUpgradeLogName, util.UpgradeLogFlowComponent), metav1.GetOptions{})
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.clusterFlow, actual.clusterFlow, "case %q", tc.name)
 		} else {
 			var err error
-			actual.clusterFlow, err = handler.clusterFlowClient.Get(util.HarvesterUpgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, FlowComponent), metav1.GetOptions{})
+			actual.clusterFlow, err = handler.clusterFlowClient.Get(util.HarvesterSystemNamespaceName, name.SafeConcatName(testUpgradeLogName, util.UpgradeLogFlowComponent), metav1.GetOptions{})
 			assert.True(t, apierrors.IsNotFound(err), "case %q", tc.name)
 			assert.Nil(t, actual.clusterFlow, "case %q", tc.name)
 		}
@@ -856,55 +856,55 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			// HACK: cannot create ClusterOutput with namespace specified using fake client so we skip the field here
 			tc.expected.clusterOutput.Namespace = ""
 			var err error
-			actual.clusterOutput, err = handler.clusterOutputClient.Get(util.HarvesterUpgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, OutputComponent), metav1.GetOptions{})
+			actual.clusterOutput, err = handler.clusterOutputClient.Get(util.HarvesterSystemNamespaceName, name.SafeConcatName(testUpgradeLogName, util.UpgradeLogOutputComponent), metav1.GetOptions{})
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.clusterOutput, actual.clusterOutput, "case %q", tc.name)
 		} else {
 			var err error
-			actual.clusterOutput, err = handler.clusterOutputClient.Get(util.HarvesterUpgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, OutputComponent), metav1.GetOptions{})
+			actual.clusterOutput, err = handler.clusterOutputClient.Get(util.HarvesterSystemNamespaceName, name.SafeConcatName(testUpgradeLogName, util.UpgradeLogOutputComponent), metav1.GetOptions{})
 			assert.True(t, apierrors.IsNotFound(err), "case %q", tc.name)
 			assert.Nil(t, actual.clusterOutput, "case %q", tc.name)
 		}
 
 		if tc.expected.deployment != nil {
 			var err error
-			actual.deployment, err = handler.deploymentClient.Get(util.HarvesterUpgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, DownloaderComponent), metav1.GetOptions{})
+			actual.deployment, err = handler.deploymentClient.Get(util.HarvesterSystemNamespaceName, name.SafeConcatName(testUpgradeLogName, util.UpgradeLogDownloaderComponent), metav1.GetOptions{})
 			assert.Nil(t, err)
 		}
 
 		if tc.expected.logging != nil {
 			var err error
-			actual.logging, err = handler.loggingClient.Get(name.SafeConcatName(testUpgradeLogName, InfraComponent), metav1.GetOptions{})
+			actual.logging, err = handler.loggingClient.Get(name.SafeConcatName(testUpgradeLogName, util.UpgradeLogInfraComponent), metav1.GetOptions{})
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.logging, actual.logging, "case %q", tc.name)
 		} else {
 			var err error
-			actual.logging, err = handler.loggingClient.Get(name.SafeConcatName(testUpgradeLogName, InfraComponent), metav1.GetOptions{})
+			actual.logging, err = handler.loggingClient.Get(name.SafeConcatName(testUpgradeLogName, util.UpgradeLogInfraComponent), metav1.GetOptions{})
 			assert.True(t, apierrors.IsNotFound(err), "case %q", tc.name)
 			assert.Nil(t, actual.logging, "case %q", tc.name)
 		}
 
 		if tc.expected.managedChart != nil {
 			var err error
-			actual.managedChart, err = handler.managedChartClient.Get(managedChartNamespace, name.SafeConcatName(testUpgradeLogName, OperatorComponent), metav1.GetOptions{})
+			actual.managedChart, err = handler.managedChartClient.Get(util.FleetLocalNamespaceName, name.SafeConcatName(testUpgradeLogName, util.UpgradeLogOperatorComponent), metav1.GetOptions{})
 			assert.Nil(t, err)
 		}
 
 		if tc.expected.pvc != nil {
 			var err error
-			actual.pvc, err = handler.pvcClient.Get(util.HarvesterUpgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, LogArchiveComponent), metav1.GetOptions{})
+			actual.pvc, err = handler.pvcClient.Get(util.HarvesterSystemNamespaceName, name.SafeConcatName(testUpgradeLogName, util.UpgradeLogArchiveComponent), metav1.GetOptions{})
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.pvc, actual.pvc, "case %q", tc.name)
 		} else {
 			var err error
-			actual.pvc, err = handler.pvcClient.Get(util.HarvesterUpgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, LogArchiveComponent), metav1.GetOptions{})
+			actual.pvc, err = handler.pvcClient.Get(util.HarvesterSystemNamespaceName, name.SafeConcatName(testUpgradeLogName, util.UpgradeLogArchiveComponent), metav1.GetOptions{})
 			assert.True(t, apierrors.IsNotFound(err), "case %q", tc.name)
 			assert.Nil(t, actual.pvc, "case %q", tc.name)
 		}
 
 		if tc.expected.upgrade != nil {
 			var err error
-			actual.upgrade, err = handler.upgradeCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeName)
+			actual.upgrade, err = handler.upgradeCache.Get(util.HarvesterSystemNamespaceName, testUpgradeName)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.upgrade, actual.upgrade, "case %q", tc.name)
 		}

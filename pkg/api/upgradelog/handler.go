@@ -11,9 +11,13 @@ import (
 	"github.com/rancher/apiserver/pkg/apierror"
 	ctlbatchv1 "github.com/rancher/wrangler/pkg/generated/controllers/batch/v1"
 	ctlcorev1 "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
+	"github.com/rancher/wrangler/pkg/name"
 	"github.com/rancher/wrangler/pkg/schemas/validation"
 	"github.com/sirupsen/logrus"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	ctlupgradelog "github.com/harvester/harvester/pkg/controller/master/upgradelog"
@@ -22,7 +26,29 @@ import (
 )
 
 const (
-	archiveSuffix = ".tar.gz"
+	archiveSuffix                = ".tar.gz"
+	defaultJobBackoffLimit int32 = 5
+	logPackagingScript           = `
+#!/usr/bin/env sh
+set -e
+
+echo "start to package upgrade logs"
+
+archive="$ARCHIVE_NAME.tar.gz"
+tmpdir=$(mktemp -d)
+mkdir $tmpdir/logs
+
+cd /archive/logs
+
+for f in *.log
+do
+    cat $f | awk '{$1=$2=""; print $0}' | jq -r .message > $tmpdir/logs/$f
+done
+
+tar -zcvf /archive/$archive -C $tmpdir .
+ls -l /archive/$archive
+echo "done"
+`
 )
 
 type Handler struct {
@@ -101,7 +127,7 @@ func (h Handler) downloadArchive(rw http.ResponseWriter, req *http.Request) erro
 		return fmt.Errorf("the archive (%s) of upgrade resource (%s/%s) is not ready yet", archiveName, upgradeLogNamespace, upgradeLogName)
 	}
 
-	downloaderPodIP, err := ctlupgradelog.GetDownloaderPodIP(h.podCache, upgradeLog)
+	downloaderPodIP, err := getDownloaderPodIP(h.podCache, upgradeLog)
 	if err != nil {
 		return fmt.Errorf("failed to get the downloader pod IP with upgradelog resource (%s/%s): %w", upgradeLogNamespace, upgradeLogName, err)
 	}
@@ -176,12 +202,12 @@ func (h Handler) generateArchive(rw http.ResponseWriter, req *http.Request) erro
 
 	var component string
 	if harvesterv1.UpgradeEnded.IsTrue(upgradeLog) {
-		component = ctlupgradelog.DownloaderComponent
+		component = util.UpgradeLogDownloaderComponent
 	} else {
-		component = ctlupgradelog.AggregatorComponent
+		component = util.UpgradeLogAggregatorComponent
 	}
 
-	if _, err := h.jobClient.Create(ctlupgradelog.PrepareLogPackager(upgradeLog, imageVersion, archiveName, component)); err != nil {
+	if _, err := h.jobClient.Create(prepareLogPackager(upgradeLog, imageVersion, archiveName, component)); err != nil {
 		return fmt.Errorf("failed to create log packager job for the upgradelog resource (%s/%s): %w", upgradeLogNamespace, upgradeLogName, err)
 	}
 	toUpdate := upgradeLog.DeepCopy()
@@ -192,4 +218,128 @@ func (h Handler) generateArchive(rw http.ResponseWriter, req *http.Request) erro
 	util.ResponseOKWithBody(rw, archiveName)
 
 	return nil
+}
+
+func getDownloaderPodIP(podCache ctlcorev1.PodCache, upgradeLog *harvesterv1.UpgradeLog) (string, error) {
+	sets := labels.Set{
+		util.LabelUpgradeLog:          upgradeLog.Name,
+		util.LabelUpgradeLogComponent: util.UpgradeLogDownloaderComponent,
+	}
+
+	pods, err := podCache.List(upgradeLog.Namespace, sets.AsSelector())
+	if err != nil {
+		return "", err
+
+	}
+	if len(pods) == 0 {
+		return "", fmt.Errorf("downloader pod is not created")
+	}
+	if len(pods) > 1 {
+		return "", fmt.Errorf("more than one downloader pods found")
+	}
+	if pods[0].Status.PodIP == "" {
+		return "", fmt.Errorf("downloader pod IP is not allocated")
+	}
+
+	return pods[0].Status.PodIP, nil
+}
+
+func prepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, imageVersion, archiveName, component string) *batchv1.Job {
+	backoffLimit := defaultJobBackoffLimit
+	return &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				util.AnnotationArchiveName: archiveName,
+			},
+			Labels: map[string]string{
+				util.LabelUpgradeLog:          upgradeLog.Name,
+				util.LabelUpgradeLogComponent: util.UpgradeLogPackagerComponent,
+			},
+			GenerateName: name.SafeConcatName(upgradeLog.Name, util.UpgradeLogPackagerComponent) + "-",
+			Namespace:    util.HarvesterSystemNamespaceName,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					Name:       upgradeLog.Name,
+					Kind:       upgradeLog.Kind,
+					UID:        upgradeLog.UID,
+					APIVersion: upgradeLog.APIVersion,
+				},
+			},
+		},
+		Spec: batchv1.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						util.LabelUpgradeLog:          upgradeLog.Name,
+						util.LabelUpgradeLogComponent: util.UpgradeLogPackagerComponent,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Affinity: &corev1.Affinity{
+						PodAffinity: &corev1.PodAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+								{
+									LabelSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											util.LabelUpgradeLog:          upgradeLog.Name,
+											util.LabelUpgradeLogComponent: component,
+										},
+									},
+									Namespaces: []string{
+										util.HarvesterSystemNamespaceName,
+									},
+									TopologyKey: "kubernetes.io/hostname",
+								},
+							},
+						},
+					},
+					Containers: []corev1.Container{
+						{
+							Name:  "packager",
+							Image: fmt.Sprintf("%s:%s", util.HarvesterUpgradeImageRepository, imageVersion),
+							Command: []string{
+								"sh", "-c", logPackagingScript,
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "ARCHIVE_NAME",
+									Value: archiveName,
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "log-archive",
+									MountPath: "/archive",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "log-archive",
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: name.SafeConcatName(upgradeLog.Name, util.UpgradeLogArchiveComponent),
+								},
+							},
+						},
+					},
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      "kubevirt.io/drain",
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoSchedule,
+						},
+						{
+							Key:      "node.kubernetes.io/unschedulable",
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoSchedule,
+						},
+					},
+					RestartPolicy: corev1.RestartPolicyOnFailure,
+				},
+			},
+			BackoffLimit: &backoffLimit,
+		},
+	}
 }
