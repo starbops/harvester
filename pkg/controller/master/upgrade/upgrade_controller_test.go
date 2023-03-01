@@ -38,7 +38,7 @@ func newTestUpgradeLog() *harvesterv1.UpgradeLog {
 			Namespace: harvesterSystemNamespace,
 		},
 		Spec: harvesterv1.UpgradeLogSpec{
-			Upgrade: testUpgradeName,
+			UpgradeName: testUpgradeName,
 		},
 	}
 }

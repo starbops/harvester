@@ -195,7 +195,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		logrus.Info("Logging infrastructure is ready, proceed the upgrade procedure")
 
 		// handle corresponding upgrade resource
-		upgradeName := upgradeLog.Spec.Upgrade
+		upgradeName := upgradeLog.Spec.UpgradeName
 		upgrade, err := h.upgradeCache.Get(util.HarvesterSystemNamespaceName, upgradeName)
 		if err != nil {
 			return nil, err
@@ -229,7 +229,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		logrus.Info("Spin up downloader")
 
 		// Get image version for log-downloader
-		upgradeName := upgradeLog.Spec.Upgrade
+		upgradeName := upgradeLog.Spec.UpgradeName
 		upgrade, err := h.upgradeCache.Get(util.HarvesterSystemNamespaceName, upgradeName)
 		if err != nil {
 			return nil, err

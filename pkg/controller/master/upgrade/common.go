@@ -139,7 +139,7 @@ func prepareUpgradeLog(upgrade *harvesterv1.Upgrade) *harvesterv1.UpgradeLog {
 			},
 		},
 		Spec: harvesterv1.UpgradeLogSpec{
-			Upgrade: upgrade.Name,
+			UpgradeName: upgrade.Name,
 		},
 	}
 }

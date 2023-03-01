@@ -188,9 +188,10 @@ func (h Handler) generateArchive(rw http.ResponseWriter, req *http.Request) erro
 	}
 
 	// Get image version for log packager
-	upgrade, err := h.upgradeCache.Get(upgradeLogNamespace, upgradeLog.Spec.Upgrade)
+	upgradeName := upgradeLog.Spec.UpgradeName
+	upgrade, err := h.upgradeCache.Get(util.HarvesterSystemNamespaceName, upgradeName)
 	if err != nil {
-		return fmt.Errorf("failed to get the upgrade resource (%s/%s): %w", upgradeLogNamespace, upgradeLog.Spec.Upgrade, err)
+		return fmt.Errorf("failed to get the upgrade resource (%s/%s): %w", util.HarvesterSystemNamespaceName, upgradeName, err)
 	}
 	imageVersion := upgrade.Status.PreviousVersion
 

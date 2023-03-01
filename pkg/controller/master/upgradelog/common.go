@@ -491,7 +491,7 @@ func (p *upgradeLogBuilder) WithLabel(key, value string) *upgradeLogBuilder {
 }
 
 func (p *upgradeLogBuilder) Upgrade(value string) *upgradeLogBuilder {
-	p.upgradeLog.Spec.Upgrade = value
+	p.upgradeLog.Spec.UpgradeName = value
 	return p
 }
 
