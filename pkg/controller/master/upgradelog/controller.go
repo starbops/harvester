@@ -85,11 +85,11 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		return h.upgradeLogClient.Update(toUpdate)
 	}
 
-	if harvesterv1.OperatorDeployed.GetStatus(upgradeLog) == "" {
+	if harvesterv1.LoggingOperatorDeployed.GetStatus(upgradeLog) == "" {
 		logrus.Info("Check if there are any existing logging-operator")
 
 		toUpdate := upgradeLog.DeepCopy()
-		harvesterv1.OperatorDeployed.CreateUnknownIfNotExists(toUpdate)
+		harvesterv1.LoggingOperatorDeployed.CreateUnknownIfNotExists(toUpdate)
 
 		// Detect rancher-logging Addon
 		if addon, err := h.addonCache.Get(util.CattleLoggingSystemNamespaceName, util.RancherLoggingName); err != nil {
@@ -129,7 +129,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		return h.upgradeLogClient.Update(toUpdate)
 	}
 
-	if harvesterv1.OperatorDeployed.IsTrue(upgradeLog) && harvesterv1.InfraScaffolded.GetStatus(upgradeLog) == "" {
+	if harvesterv1.LoggingOperatorDeployed.IsTrue(upgradeLog) && harvesterv1.InfraScaffolded.GetStatus(upgradeLog) == "" {
 		logrus.Info("Start to scaffold the logging infrastructure for upgrade procedure")
 
 		toUpdate := upgradeLog.DeepCopy()
@@ -144,7 +144,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		harvesterv1.InfraScaffolded.CreateUnknownIfNotExists(toUpdate)
 
 		return h.upgradeLogClient.Update(toUpdate)
-	} else if harvesterv1.OperatorDeployed.IsTrue(upgradeLog) && harvesterv1.InfraScaffolded.IsUnknown(upgradeLog) {
+	} else if harvesterv1.LoggingOperatorDeployed.IsTrue(upgradeLog) && harvesterv1.InfraScaffolded.IsUnknown(upgradeLog) {
 		logrus.Info("Check if the logging infrastructure is ready")
 
 		toUpdate := upgradeLog.DeepCopy()

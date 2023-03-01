@@ -6,11 +6,11 @@ import (
 )
 
 var (
-	OperatorDeployed condition.Cond = "OperatorReady"
-	InfraScaffolded  condition.Cond = "InfraReady"
-	UpgradeLogReady  condition.Cond = "Started"
-	UpgradeEnded     condition.Cond = "Stopped"
-	DownloadReady    condition.Cond = "DownloadReady"
+	LoggingOperatorDeployed condition.Cond = "LoggingOperatorReady"
+	InfraScaffolded         condition.Cond = "InfraReady"
+	UpgradeLogReady         condition.Cond = "Started"
+	UpgradeEnded            condition.Cond = "Stopped"
+	DownloadReady           condition.Cond = "DownloadReady"
 )
 
 // +genclient

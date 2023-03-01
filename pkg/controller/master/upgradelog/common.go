@@ -382,9 +382,9 @@ func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog, imageVersion strin
 }
 
 func setOperatorDeployedCondition(upgradeLog *harvesterv1.UpgradeLog, status corev1.ConditionStatus, reason, message string) {
-	harvesterv1.OperatorDeployed.SetStatus(upgradeLog, string(status))
-	harvesterv1.OperatorDeployed.Reason(upgradeLog, reason)
-	harvesterv1.OperatorDeployed.Message(upgradeLog, message)
+	harvesterv1.LoggingOperatorDeployed.SetStatus(upgradeLog, string(status))
+	harvesterv1.LoggingOperatorDeployed.Reason(upgradeLog, reason)
+	harvesterv1.LoggingOperatorDeployed.Message(upgradeLog, message)
 }
 
 func setInfraScaffoldedCondition(upgradeLog *harvesterv1.UpgradeLog, status corev1.ConditionStatus, reason, message string) {
