@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
+	"github.com/harvester/harvester/pkg/util"
 )
 
 const (
@@ -80,7 +81,7 @@ func preparePvc(upgradeLog *harvesterv1.UpgradeLog) *corev1.PersistentVolumeClai
 				harvesterUpgradeLogComponentLabel: LogArchiveComponent,
 			},
 			Name:      name.SafeConcatName(upgradeLog.Name, LogArchiveComponent),
-			Namespace: upgradeLogNamespace,
+			Namespace: util.HarvesterUpgradeLogNamespace,
 			OwnerReferences: []metav1.OwnerReference{
 				upgradeLogReference(upgradeLog),
 			},
@@ -211,7 +212,7 @@ func prepareClusterFlow(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.ClusterFl
 				harvesterUpgradeLogComponentLabel: FlowComponent,
 			},
 			Name:      name.SafeConcatName(upgradeLog.Name, FlowComponent),
-			Namespace: upgradeLogNamespace,
+			Namespace: util.HarvesterUpgradeLogNamespace,
 			OwnerReferences: []metav1.OwnerReference{
 				upgradeLogReference(upgradeLog),
 			},
@@ -306,7 +307,7 @@ func prepareClusterOutput(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.Cluster
 				harvesterUpgradeLogComponentLabel: OutputComponent,
 			},
 			Name:      name.SafeConcatName(upgradeLog.Name, OutputComponent),
-			Namespace: upgradeLogNamespace,
+			Namespace: util.HarvesterUpgradeLogNamespace,
 			OwnerReferences: []metav1.OwnerReference{
 				upgradeLogReference(upgradeLog),
 			},
@@ -338,7 +339,7 @@ func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog, imageVersion strin
 				harvesterUpgradeLogComponentLabel: DownloaderComponent,
 			},
 			Name:      name.SafeConcatName(upgradeLog.Name, DownloaderComponent),
-			Namespace: upgradeLogNamespace,
+			Namespace: util.HarvesterUpgradeLogNamespace,
 			OwnerReferences: []metav1.OwnerReference{
 				upgradeLogReference(upgradeLog),
 			},
@@ -372,7 +373,7 @@ func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog, imageVersion strin
 											},
 										},
 										Namespaces: []string{
-											upgradeLogNamespace,
+											util.HarvesterUpgradeLogNamespace,
 										},
 										TopologyKey: "kubernetes.io/hostname",
 									},
@@ -467,7 +468,7 @@ func newUpgradeBuilder(name string) *upgradeBuilder {
 		upgrade: &harvesterv1.Upgrade{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: upgradeLogNamespace,
+				Namespace: util.HarvesterUpgradeLogNamespace,
 			},
 		},
 	}
@@ -506,7 +507,7 @@ func newUpgradeLogBuilder(name string) *upgradeLogBuilder {
 		upgradeLog: &harvesterv1.UpgradeLog{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: upgradeLogNamespace,
+				Namespace: util.HarvesterUpgradeLogNamespace,
 			},
 		},
 	}
@@ -600,7 +601,7 @@ func newClusterFlowBuilder(name string) *clusterFlowBuilder {
 		clusterFlow: &loggingv1.ClusterFlow{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: upgradeLogNamespace,
+				Namespace: util.HarvesterUpgradeLogNamespace,
 			},
 		},
 	}
@@ -638,7 +639,7 @@ func newClusterOutputBuilder(name string) *clusterOutputBuilder {
 		clusterOutput: &loggingv1.ClusterOutput{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: upgradeLogNamespace,
+				Namespace: util.HarvesterUpgradeLogNamespace,
 			},
 		},
 	}
@@ -676,7 +677,7 @@ func newDaemonSetBuilder(name string) *daemonSetBuilder {
 		daemonSet: &appsv1.DaemonSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: upgradeLogNamespace,
+				Namespace: util.HarvesterUpgradeLogNamespace,
 			},
 		},
 	}
@@ -715,7 +716,7 @@ func newJobBuilder(name string) *jobBuilder {
 		job: &batchv1.Job{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: upgradeLogNamespace,
+				Namespace: util.HarvesterUpgradeLogNamespace,
 			},
 		},
 	}
@@ -814,7 +815,7 @@ func newPvcBuilder(name string) *pvcBuilder {
 		pvc: &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: upgradeLogNamespace,
+				Namespace: util.HarvesterUpgradeLogNamespace,
 			},
 		},
 	}
@@ -841,7 +842,7 @@ func newStatefulSetBuilder(name string) *statefulSetBuilder {
 		statefulSet: &appsv1.StatefulSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: upgradeLogNamespace,
+				Namespace: util.HarvesterUpgradeLogNamespace,
 			},
 		},
 	}
@@ -881,7 +882,7 @@ func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, imageVersion, archiv
 				harvesterUpgradeLogComponentLabel: PackagerComponent,
 			},
 			GenerateName: name.SafeConcatName(upgradeLog.Name, PackagerComponent) + "-",
-			Namespace:    upgradeLogNamespace,
+			Namespace:    util.HarvesterUpgradeLogNamespace,
 			OwnerReferences: []metav1.OwnerReference{
 				upgradeLogReference(upgradeLog),
 			},
@@ -906,7 +907,7 @@ func PrepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, imageVersion, archiv
 										},
 									},
 									Namespaces: []string{
-										upgradeLogNamespace,
+										util.HarvesterUpgradeLogNamespace,
 									},
 									TopologyKey: "kubernetes.io/hostname",
 								},

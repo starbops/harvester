@@ -22,8 +22,7 @@ import (
 )
 
 const (
-	upgradeLogNamespace = "harvester-system"
-	archiveSuffix       = ".tar.gz"
+	archiveSuffix = ".tar.gz"
 )
 
 type Handler struct {

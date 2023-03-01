@@ -16,6 +16,7 @@ import (
 
 	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	"github.com/harvester/harvester/pkg/generated/clientset/versioned/fake"
+	"github.com/harvester/harvester/pkg/util"
 	"github.com/harvester/harvester/pkg/util/fakeclients"
 )
 
@@ -128,7 +129,7 @@ func TestHandler_OnClusterFlowChange(t *testing.T) {
 		var clientset = fake.NewSimpleClientset(tc.given.upgradeLog)
 
 		var handler = &handler{
-			namespace:        upgradeLogNamespace,
+			namespace:        util.HarvesterUpgradeLogNamespace,
 			upgradeLogClient: fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
 			upgradeLogCache:  fakeclients.UpgradeLogCache(clientset.HarvesterhciV1beta1().UpgradeLogs),
 		}
@@ -138,7 +139,7 @@ func TestHandler_OnClusterFlowChange(t *testing.T) {
 
 		if tc.expected.upgradeLog != nil {
 			var err error
-			actual.upgradeLog, err = handler.upgradeLogCache.Get(upgradeLogNamespace, testUpgradeLogName)
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeLogName)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.upgradeLog, actual.upgradeLog, "case %q", tc.name)
 		}
@@ -188,7 +189,7 @@ func TestHandler_OnClusterOutputChange(t *testing.T) {
 		var clientset = fake.NewSimpleClientset(tc.given.upgradeLog)
 
 		var handler = &handler{
-			namespace:        upgradeLogNamespace,
+			namespace:        util.HarvesterUpgradeLogNamespace,
 			upgradeLogClient: fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
 			upgradeLogCache:  fakeclients.UpgradeLogCache(clientset.HarvesterhciV1beta1().UpgradeLogs),
 		}
@@ -198,7 +199,7 @@ func TestHandler_OnClusterOutputChange(t *testing.T) {
 
 		if tc.expected.upgradeLog != nil {
 			var err error
-			actual.upgradeLog, err = handler.upgradeLogCache.Get(upgradeLogNamespace, testUpgradeLogName)
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeLogName)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.upgradeLog, actual.upgradeLog, "case %q", tc.name)
 		}
@@ -248,7 +249,7 @@ func TestHandler_OnDaemonSetChange(t *testing.T) {
 		var clientset = fake.NewSimpleClientset(tc.given.upgradeLog)
 
 		var handler = &handler{
-			namespace:        upgradeLogNamespace,
+			namespace:        util.HarvesterUpgradeLogNamespace,
 			upgradeLogClient: fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
 			upgradeLogCache:  fakeclients.UpgradeLogCache(clientset.HarvesterhciV1beta1().UpgradeLogs),
 		}
@@ -258,7 +259,7 @@ func TestHandler_OnDaemonSetChange(t *testing.T) {
 
 		if tc.expected.upgradeLog != nil {
 			var err error
-			actual.upgradeLog, err = handler.upgradeLogCache.Get(upgradeLogNamespace, testUpgradeLogName)
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeLogName)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.upgradeLog, actual.upgradeLog, "case %q", tc.name)
 		}
@@ -308,7 +309,7 @@ func TestHandler_OnJobChange(t *testing.T) {
 		var clientset = fake.NewSimpleClientset(tc.given.upgradeLog)
 
 		var handler = &handler{
-			namespace:        upgradeLogNamespace,
+			namespace:        util.HarvesterUpgradeLogNamespace,
 			upgradeLogClient: fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
 			upgradeLogCache:  fakeclients.UpgradeLogCache(clientset.HarvesterhciV1beta1().UpgradeLogs),
 		}
@@ -318,7 +319,7 @@ func TestHandler_OnJobChange(t *testing.T) {
 
 		if tc.expected.upgradeLog != nil {
 			var err error
-			actual.upgradeLog, err = handler.upgradeLogCache.Get(upgradeLogNamespace, testUpgradeLogName)
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeLogName)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.upgradeLog, actual.upgradeLog, "case %q", tc.name)
 		}
@@ -369,7 +370,7 @@ func TestHandler_OnManagedChartChange(t *testing.T) {
 		var clientset = fake.NewSimpleClientset(tc.given.upgradeLog)
 
 		var handler = &handler{
-			namespace:        upgradeLogNamespace,
+			namespace:        util.HarvesterUpgradeLogNamespace,
 			upgradeLogClient: fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
 			upgradeLogCache:  fakeclients.UpgradeLogCache(clientset.HarvesterhciV1beta1().UpgradeLogs),
 		}
@@ -379,7 +380,7 @@ func TestHandler_OnManagedChartChange(t *testing.T) {
 
 		if tc.expected.upgradeLog != nil {
 			var err error
-			actual.upgradeLog, err = handler.upgradeLogCache.Get(upgradeLogNamespace, testUpgradeLogName)
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeLogName)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.upgradeLog, actual.upgradeLog, "case %q", tc.name)
 		}
@@ -429,7 +430,7 @@ func TestHandler_OnStatefulSetChange(t *testing.T) {
 		var clientset = fake.NewSimpleClientset(tc.given.upgradeLog)
 
 		var handler = &handler{
-			namespace:        upgradeLogNamespace,
+			namespace:        util.HarvesterUpgradeLogNamespace,
 			upgradeLogClient: fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
 			upgradeLogCache:  fakeclients.UpgradeLogCache(clientset.HarvesterhciV1beta1().UpgradeLogs),
 		}
@@ -439,7 +440,7 @@ func TestHandler_OnStatefulSetChange(t *testing.T) {
 
 		if tc.expected.upgradeLog != nil {
 			var err error
-			actual.upgradeLog, err = handler.upgradeLogCache.Get(upgradeLogNamespace, testUpgradeLogName)
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeLogName)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.upgradeLog, actual.upgradeLog, "case %q", tc.name)
 		}
@@ -512,12 +513,12 @@ func TestHandler_OnUpgradeChange(t *testing.T) {
 
 		if tc.expected.upgradeLog != nil {
 			var err error
-			actual.upgradeLog, err = handler.upgradeLogCache.Get(upgradeLogNamespace, testUpgradeLogName)
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeLogName)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.upgradeLog, actual.upgradeLog, "case %q", tc.name)
 		} else {
 			var err error
-			actual.upgradeLog, err = handler.upgradeLogCache.Get(upgradeLogNamespace, testUpgradeLogName)
+			actual.upgradeLog, err = handler.upgradeLogCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeLogName)
 			assert.True(t, apierrors.IsNotFound(err), "case %q", tc.name)
 		}
 	}
@@ -820,7 +821,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 		}
 
 		var handler = &handler{
-			namespace:           upgradeLogNamespace,
+			namespace:           util.HarvesterUpgradeLogNamespace,
 			addonCache:          fakeclients.AddonCache(clientset.HarvesterhciV1beta1().Addons),
 			clusterFlowClient:   fakeclients.ClusterFlowClient(clientset.LoggingV1beta1().ClusterFlows),
 			clusterOutputClient: fakeclients.ClusterOutputClient(clientset.LoggingV1beta1().ClusterOutputs),
@@ -841,12 +842,12 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			// HACK: cannot create ClusterFlow with namespace specified using fake client so we skip the field here
 			tc.expected.clusterFlow.Namespace = ""
 			var err error
-			actual.clusterFlow, err = handler.clusterFlowClient.Get(upgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, FlowComponent), metav1.GetOptions{})
+			actual.clusterFlow, err = handler.clusterFlowClient.Get(util.HarvesterUpgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, FlowComponent), metav1.GetOptions{})
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.clusterFlow, actual.clusterFlow, "case %q", tc.name)
 		} else {
 			var err error
-			actual.clusterFlow, err = handler.clusterFlowClient.Get(upgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, FlowComponent), metav1.GetOptions{})
+			actual.clusterFlow, err = handler.clusterFlowClient.Get(util.HarvesterUpgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, FlowComponent), metav1.GetOptions{})
 			assert.True(t, apierrors.IsNotFound(err), "case %q", tc.name)
 			assert.Nil(t, actual.clusterFlow, "case %q", tc.name)
 		}
@@ -855,19 +856,19 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			// HACK: cannot create ClusterOutput with namespace specified using fake client so we skip the field here
 			tc.expected.clusterOutput.Namespace = ""
 			var err error
-			actual.clusterOutput, err = handler.clusterOutputClient.Get(upgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, OutputComponent), metav1.GetOptions{})
+			actual.clusterOutput, err = handler.clusterOutputClient.Get(util.HarvesterUpgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, OutputComponent), metav1.GetOptions{})
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.clusterOutput, actual.clusterOutput, "case %q", tc.name)
 		} else {
 			var err error
-			actual.clusterOutput, err = handler.clusterOutputClient.Get(upgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, OutputComponent), metav1.GetOptions{})
+			actual.clusterOutput, err = handler.clusterOutputClient.Get(util.HarvesterUpgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, OutputComponent), metav1.GetOptions{})
 			assert.True(t, apierrors.IsNotFound(err), "case %q", tc.name)
 			assert.Nil(t, actual.clusterOutput, "case %q", tc.name)
 		}
 
 		if tc.expected.deployment != nil {
 			var err error
-			actual.deployment, err = handler.deploymentClient.Get(upgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, DownloaderComponent), metav1.GetOptions{})
+			actual.deployment, err = handler.deploymentClient.Get(util.HarvesterUpgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, DownloaderComponent), metav1.GetOptions{})
 			assert.Nil(t, err)
 		}
 
@@ -891,19 +892,19 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 
 		if tc.expected.pvc != nil {
 			var err error
-			actual.pvc, err = handler.pvcClient.Get(upgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, LogArchiveComponent), metav1.GetOptions{})
+			actual.pvc, err = handler.pvcClient.Get(util.HarvesterUpgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, LogArchiveComponent), metav1.GetOptions{})
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.pvc, actual.pvc, "case %q", tc.name)
 		} else {
 			var err error
-			actual.pvc, err = handler.pvcClient.Get(upgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, LogArchiveComponent), metav1.GetOptions{})
+			actual.pvc, err = handler.pvcClient.Get(util.HarvesterUpgradeLogNamespace, name.SafeConcatName(testUpgradeLogName, LogArchiveComponent), metav1.GetOptions{})
 			assert.True(t, apierrors.IsNotFound(err), "case %q", tc.name)
 			assert.Nil(t, actual.pvc, "case %q", tc.name)
 		}
 
 		if tc.expected.upgrade != nil {
 			var err error
-			actual.upgrade, err = handler.upgradeCache.Get(upgradeLogNamespace, testUpgradeName)
+			actual.upgrade, err = handler.upgradeCache.Get(util.HarvesterUpgradeLogNamespace, testUpgradeName)
 			assert.Nil(t, err)
 			assert.Equal(t, tc.expected.upgrade, actual.upgrade, "case %q", tc.name)
 		}
