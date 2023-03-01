@@ -47,7 +47,7 @@ func (h Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (h Handler) doAction(rw http.ResponseWriter, req *http.Request) error {
-	vars := mux.Vars(req)
+	vars := util.EncodeVars(mux.Vars(req))
 
 	if req.Method == http.MethodGet {
 		return h.doGet(vars["link"], rw, req)
@@ -77,7 +77,7 @@ func (h Handler) doPost(action string, rw http.ResponseWriter, req *http.Request
 }
 
 func (h Handler) downloadArchive(rw http.ResponseWriter, req *http.Request) error {
-	vars := mux.Vars(req)
+	vars := util.EncodeVars(mux.Vars(req))
 	upgradeLogName := vars["name"]
 	upgradeLogNamespace := vars["namespace"]
 	archiveName := req.URL.Query().Get("archiveName")
@@ -138,7 +138,7 @@ func (h Handler) downloadArchive(rw http.ResponseWriter, req *http.Request) erro
 }
 
 func (h Handler) generateArchive(rw http.ResponseWriter, req *http.Request) error {
-	vars := mux.Vars(req)
+	vars := util.EncodeVars(mux.Vars(req))
 	upgradeLogName := vars["name"]
 	upgradeLogNamespace := vars["namespace"]
 
