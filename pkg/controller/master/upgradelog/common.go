@@ -476,7 +476,7 @@ func newUpgradeBuilder(name string) *upgradeBuilder {
 
 func (p *upgradeBuilder) WithLabel(key, value string) *upgradeBuilder {
 	if p.upgrade.Labels == nil {
-		p.upgrade.Labels = make(map[string]string)
+		p.upgrade.Labels = make(map[string]string, 1)
 	}
 	p.upgrade.Labels[key] = value
 	return p
@@ -515,7 +515,7 @@ func newUpgradeLogBuilder(name string) *upgradeLogBuilder {
 
 func (p *upgradeLogBuilder) WithAnnotation(key, value string) *upgradeLogBuilder {
 	if p.upgradeLog.Annotations == nil {
-		p.upgradeLog.Annotations = make(map[string]string)
+		p.upgradeLog.Annotations = make(map[string]string, 1)
 	}
 	p.upgradeLog.Annotations[key] = value
 	return p
@@ -523,7 +523,7 @@ func (p *upgradeLogBuilder) WithAnnotation(key, value string) *upgradeLogBuilder
 
 func (p *upgradeLogBuilder) WithLabel(key, value string) *upgradeLogBuilder {
 	if p.upgradeLog.Labels == nil {
-		p.upgradeLog.Labels = make(map[string]string)
+		p.upgradeLog.Labels = make(map[string]string, 1)
 	}
 	p.upgradeLog.Labels[key] = value
 	return p
@@ -609,7 +609,7 @@ func newClusterFlowBuilder(name string) *clusterFlowBuilder {
 
 func (p *clusterFlowBuilder) WithLabel(key, value string) *clusterFlowBuilder {
 	if p.clusterFlow.Labels == nil {
-		p.clusterFlow.Labels = make(map[string]string)
+		p.clusterFlow.Labels = make(map[string]string, 1)
 	}
 	p.clusterFlow.Labels[key] = value
 	return p
@@ -647,7 +647,7 @@ func newClusterOutputBuilder(name string) *clusterOutputBuilder {
 
 func (p *clusterOutputBuilder) WithLabel(key, value string) *clusterOutputBuilder {
 	if p.clusterOutput.Labels == nil {
-		p.clusterOutput.Labels = make(map[string]string)
+		p.clusterOutput.Labels = make(map[string]string, 1)
 	}
 	p.clusterOutput.Labels[key] = value
 	return p
@@ -685,7 +685,7 @@ func newDaemonSetBuilder(name string) *daemonSetBuilder {
 
 func (p *daemonSetBuilder) WithLabel(key, value string) *daemonSetBuilder {
 	if p.daemonSet.Labels == nil {
-		p.daemonSet.Labels = make(map[string]string)
+		p.daemonSet.Labels = make(map[string]string, 1)
 	}
 	p.daemonSet.Labels[key] = value
 	return p
@@ -724,7 +724,7 @@ func newJobBuilder(name string) *jobBuilder {
 
 func (p *jobBuilder) WithLabel(key, value string) *jobBuilder {
 	if p.job.Labels == nil {
-		p.job.Labels = make(map[string]string)
+		p.job.Labels = make(map[string]string, 1)
 	}
 	p.job.Labels[key] = value
 	return p
@@ -732,7 +732,7 @@ func (p *jobBuilder) WithLabel(key, value string) *jobBuilder {
 
 func (p *jobBuilder) WithAnnotation(key, value string) *jobBuilder {
 	if p.job.Annotations == nil {
-		p.job.Annotations = make(map[string]string)
+		p.job.Annotations = make(map[string]string, 1)
 	}
 	p.job.Annotations[key] = value
 	return p
@@ -763,7 +763,7 @@ func newLoggingBuilder(name string) *loggingBuilder {
 
 func (p *loggingBuilder) WithLabel(key, value string) *loggingBuilder {
 	if p.logging.Labels == nil {
-		p.logging.Labels = make(map[string]string)
+		p.logging.Labels = make(map[string]string, 1)
 	}
 	p.logging.Labels[key] = value
 	return p
@@ -790,7 +790,7 @@ func newManagedChartBuilder(name string) *managedChartBuilder {
 
 func (p *managedChartBuilder) WithLabel(key, value string) *managedChartBuilder {
 	if p.managedChart.Labels == nil {
-		p.managedChart.Labels = make(map[string]string)
+		p.managedChart.Labels = make(map[string]string, 1)
 	}
 	p.managedChart.Labels[key] = value
 	return p
@@ -823,7 +823,7 @@ func newPvcBuilder(name string) *pvcBuilder {
 
 func (p *pvcBuilder) WithLabel(key, value string) *pvcBuilder {
 	if p.pvc.Labels == nil {
-		p.pvc.Labels = make(map[string]string)
+		p.pvc.Labels = make(map[string]string, 1)
 	}
 	p.pvc.Labels[key] = value
 	return p
@@ -850,7 +850,7 @@ func newStatefulSetBuilder(name string) *statefulSetBuilder {
 
 func (p *statefulSetBuilder) WithLabel(key, value string) *statefulSetBuilder {
 	if p.statefulSet.Labels == nil {
-		p.statefulSet.Labels = make(map[string]string)
+		p.statefulSet.Labels = make(map[string]string, 1)
 	}
 	p.statefulSet.Labels[key] = value
 	return p
@@ -970,7 +970,7 @@ func SetUpgradeLogArchive(upgradeLog *harvesterv1.UpgradeLog, archiveName string
 		return
 	}
 	if upgradeLog.Status.Archives == nil {
-		upgradeLog.Status.Archives = make(map[string]harvesterv1.Archive)
+		upgradeLog.Status.Archives = make(map[string]harvesterv1.Archive, 1)
 	}
 
 	if current, ok := upgradeLog.Status.Archives[archiveName]; ok &&

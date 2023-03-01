@@ -234,7 +234,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		// handle upgradeLog resource
 		toUpdate := upgradeLog.DeepCopy()
 		if toUpdate.Annotations == nil {
-			toUpdate.Annotations = make(map[string]string)
+			toUpdate.Annotations = make(map[string]string, 1)
 		}
 		toUpdate.Annotations[upgradeLogStateAnnotation] = upgradeLogStateCollecting
 		harvesterv1.UpgradeEnded.CreateUnknownIfNotExists(toUpdate)
@@ -314,7 +314,7 @@ func (h *handler) OnClusterFlowChange(_ string, clusterFlow *loggingv1.ClusterFl
 	} else if *clusterFlow.Status.Active {
 		logrus.Debugf("ClusterFlow %s/%s is now active", clusterFlow.Namespace, clusterFlow.Name)
 		if toUpdate.Annotations == nil {
-			toUpdate.Annotations = make(map[string]string)
+			toUpdate.Annotations = make(map[string]string, 1)
 		}
 		toUpdate.Annotations[upgradeLogClusterFlowAnnotation] = upgradeLogClusterFlowReady
 	}
@@ -351,7 +351,7 @@ func (h *handler) OnClusterOutputChange(_ string, clusterOutput *loggingv1.Clust
 	} else if *clusterOutput.Status.Active {
 		logrus.Debugf("ClusterOutput %s/%s is now active", clusterOutput.Namespace, clusterOutput.Name)
 		if toUpdate.Annotations == nil {
-			toUpdate.Annotations = make(map[string]string)
+			toUpdate.Annotations = make(map[string]string, 1)
 		}
 		toUpdate.Annotations[upgradeLogClusterOutputAnnotation] = upgradeLogClusterOutputReady
 	}
@@ -394,7 +394,7 @@ func (h *handler) OnDaemonSetChange(_ string, daemonSet *appsv1.DaemonSet) (*app
 
 	if daemonSet.Status.NumberReady == daemonSet.Status.DesiredNumberScheduled {
 		if toUpdate.Annotations == nil {
-			toUpdate.Annotations = make(map[string]string)
+			toUpdate.Annotations = make(map[string]string, 1)
 		}
 		toUpdate.Annotations[upgradeLogFluentBitAnnotation] = upgradeLogFluentBitReady
 	}
@@ -538,7 +538,7 @@ func (h *handler) OnStatefulSetChange(_ string, statefulSet *appsv1.StatefulSet)
 
 	if *statefulSet.Spec.Replicas > 0 && statefulSet.Status.ReadyReplicas == *statefulSet.Spec.Replicas {
 		if toUpdate.Annotations == nil {
-			toUpdate.Annotations = make(map[string]string)
+			toUpdate.Annotations = make(map[string]string, 1)
 		}
 		toUpdate.Annotations[upgradeLogFluentdAnnotation] = upgradeLogFluentdReady
 	}
