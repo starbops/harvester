@@ -29,7 +29,7 @@ const (
 	defaultJobBackoffLimit int32 = 5
 	logPackagingScript           = `
 #!/usr/bin/env sh
-set -e
+set -ex
 
 echo "start to package upgrade logs"
 
@@ -42,6 +42,10 @@ cd /archive/logs
 for f in *.log
 do
     cat $f | awk '{$1=$2=""; print $0}' | jq -r .message > $tmpdir/logs/$f
+	if [ $? -eq 4 ]; then
+	    echo "Incomplete JSON format log line, abort processing this file."
+	    continue
+	fi
 done
 
 tar -zcvf /archive/$archive -C $tmpdir .
