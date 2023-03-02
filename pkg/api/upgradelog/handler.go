@@ -17,7 +17,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 
 	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	ctlupgradelog "github.com/harvester/harvester/pkg/controller/master/upgradelog"
@@ -127,13 +126,9 @@ func (h Handler) downloadArchive(rw http.ResponseWriter, req *http.Request) erro
 		return fmt.Errorf("the archive (%s) of upgrade resource (%s/%s) is not ready yet", archiveName, upgradeLogNamespace, upgradeLogName)
 	}
 
-	downloaderPodIP, err := h.getDownloaderPodIP(upgradeLog)
-	if err != nil {
-		return fmt.Errorf("failed to get the downloader pod IP with upgradelog resource (%s/%s): %w", upgradeLogNamespace, upgradeLogName, err)
-	}
-
+	// Crafting download request
 	archiveFileName := fmt.Sprintf("%s%s", archiveName, archiveSuffix)
-	downloadURL := fmt.Sprintf("http://%s/%s", downloaderPodIP, archiveFileName)
+	downloadURL := fmt.Sprintf("http://%s.%s/%s", upgradeLog.Name, util.HarvesterSystemNamespaceName, archiveFileName)
 	downloadReq, err := http.NewRequestWithContext(req.Context(), http.MethodGet, downloadURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create the download request for the archive (%s): %w", archiveName, err)
@@ -238,30 +233,6 @@ func (h Handler) doRetry(req *http.Request) (*http.Response, error) {
 
 	// return the last error
 	return nil, err
-}
-
-func (h Handler) getDownloaderPodIP(upgradeLog *harvesterv1.UpgradeLog) (string, error) {
-	sets := labels.Set{
-		util.LabelUpgradeLog:          upgradeLog.Name,
-		util.LabelUpgradeLogComponent: util.UpgradeLogDownloaderComponent,
-	}
-
-	pods, err := h.podCache.List(upgradeLog.Namespace, sets.AsSelector())
-	if err != nil {
-		return "", err
-
-	}
-	if len(pods) == 0 {
-		return "", fmt.Errorf("downloader pod is not created")
-	}
-	if len(pods) > 1 {
-		return "", fmt.Errorf("more than one downloader pods found")
-	}
-	if pods[0].Status.PodIP == "" {
-		return "", fmt.Errorf("downloader pod IP is not allocated")
-	}
-
-	return pods[0].Status.PodIP, nil
 }
 
 func prepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, imageVersion, archiveName, component string) *batchv1.Job {

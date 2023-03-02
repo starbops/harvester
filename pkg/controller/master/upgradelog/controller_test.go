@@ -543,6 +543,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 		logging       *loggingv1.Logging
 		managedChart  *mgmtv3.ManagedChart
 		pvc           *corev1.PersistentVolumeClaim
+		service       *corev1.Service
 		upgrade       *harvesterv1.Upgrade
 		upgradeLog    *harvesterv1.UpgradeLog
 		err           error
@@ -751,6 +752,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			},
 			expected: output{
 				deployment: prepareLogDownloader(newTestUpgradeLogBuilder().Build(), testImageVersion),
+				service:    prepareLogDownloaderSvc(newTestUpgradeLogBuilder().Build()),
 				upgradeLog: newTestUpgradeLogBuilder().
 					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
@@ -830,6 +832,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			managedChartClient:  fakeclients.ManagedChartClient(clientset.ManagementV3().ManagedCharts),
 			managedChartCache:   fakeclients.ManagedChartCache(clientset.ManagementV3().ManagedCharts),
 			pvcClient:           fakeclients.PersistentVolumeClaimClient(k8sclientset.CoreV1().PersistentVolumeClaims),
+			serviceClient:       fakeclients.ServiceClient(k8sclientset.CoreV1().Services),
 			upgradeClient:       fakeclients.UpgradeClient(clientset.HarvesterhciV1beta1().Upgrades),
 			upgradeCache:        fakeclients.UpgradeCache(clientset.HarvesterhciV1beta1().Upgrades),
 			upgradeLogClient:    fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
@@ -900,6 +903,13 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			actual.pvc, err = handler.pvcClient.Get(util.HarvesterSystemNamespaceName, name.SafeConcatName(testUpgradeLogName, util.UpgradeLogArchiveComponent), metav1.GetOptions{})
 			assert.True(t, apierrors.IsNotFound(err), "case %q", tc.name)
 			assert.Nil(t, actual.pvc, "case %q", tc.name)
+		}
+
+		if tc.expected.service != nil {
+			var err error
+			actual.service, err = handler.serviceClient.Get(util.HarvesterSystemNamespaceName, testUpgradeLogName, metav1.GetOptions{})
+			assert.Nil(t, err)
+			assert.Equal(t, tc.expected.service, actual.service, "case %q", tc.name)
 		}
 
 		if tc.expected.upgrade != nil {

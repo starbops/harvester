@@ -15,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	"github.com/harvester/harvester/pkg/util"
@@ -379,6 +380,37 @@ func prepareLogDownloader(upgradeLog *harvesterv1.UpgradeLog, imageVersion strin
 		},
 	}
 
+}
+
+func prepareLogDownloaderSvc(upgradeLog *harvesterv1.UpgradeLog) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				util.LabelUpgradeLog:          upgradeLog.Name,
+				util.LabelUpgradeLogComponent: util.UpgradeLogDownloaderComponent,
+			},
+			Name:      upgradeLog.Name,
+			Namespace: util.HarvesterSystemNamespaceName,
+			OwnerReferences: []metav1.OwnerReference{
+				upgradeLogReference(upgradeLog),
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				util.LabelUpgradeLog:          upgradeLog.Name,
+				util.LabelUpgradeLogComponent: util.UpgradeLogDownloaderComponent,
+			},
+			Type: corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Protocol:   corev1.ProtocolTCP,
+					Port:       80,
+					TargetPort: intstr.FromString("http"),
+				},
+			},
+		},
+	}
 }
 
 func setOperatorDeployedCondition(upgradeLog *harvesterv1.UpgradeLog, status corev1.ConditionStatus, reason, message string) {

@@ -64,6 +64,7 @@ type handler struct {
 	managedChartClient  ctlmgmtv3.ManagedChartClient
 	managedChartCache   ctlmgmtv3.ManagedChartCache
 	pvcClient           ctlcorev1.PersistentVolumeClaimClient
+	serviceClient       ctlcorev1.ServiceClient
 	statefulSetClient   ctlappsv1.StatefulSetClient
 	statefulSetCache    ctlappsv1.StatefulSetCache
 	upgradeClient       ctlharvesterv1.UpgradeClient
@@ -241,6 +242,9 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		imageVersion := upgrade.Status.PreviousVersion
 
 		if _, err := h.deploymentClient.Create(prepareLogDownloader(upgradeLog, imageVersion)); err != nil && !apierrors.IsAlreadyExists(err) {
+			return nil, err
+		}
+		if _, err := h.serviceClient.Create(prepareLogDownloaderSvc(upgradeLog)); err != nil && !apierrors.IsAlreadyExists(err) {
 			return nil, err
 		}
 
@@ -599,8 +603,7 @@ func (h *handler) stopCollect(upgradeLog *harvesterv1.UpgradeLog) error {
 func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog) error {
 	logrus.Info("Removing logging-operator ManagedChart if any")
 
-	var err error
-	err = h.managedChartClient.Delete(util.FleetLocalNamespaceName, name.SafeConcatName(upgradeLog.Name, util.UpgradeLogOperatorComponent), &metav1.DeleteOptions{})
+	err := h.managedChartClient.Delete(util.FleetLocalNamespaceName, name.SafeConcatName(upgradeLog.Name, util.UpgradeLogOperatorComponent), &metav1.DeleteOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
