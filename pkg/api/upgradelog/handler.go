@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/rancher/apiserver/pkg/apierror"
+	"github.com/rancher/wrangler/pkg/condition"
 	ctlbatchv1 "github.com/rancher/wrangler/pkg/generated/controllers/batch/v1"
 	ctlcorev1 "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
 	"github.com/rancher/wrangler/pkg/name"
@@ -118,14 +119,7 @@ func (h Handler) downloadArchive(rw http.ResponseWriter, req *http.Request) erro
 		return fmt.Errorf("failed to get the upgradelog resource (%s/%s): %w", upgradeLogNamespace, upgradeLogName, err)
 	}
 
-	isDownloadReady := false
-	for _, condition := range upgradeLog.Status.Conditions {
-		if condition.Type == harvesterv1.DownloadReady && condition.Status == corev1.ConditionTrue {
-			isDownloadReady = true
-			break
-		}
-	}
-
+	isDownloadReady := checkConditionReady(upgradeLog.Status.Conditions, harvesterv1.DownloadReady)
 	if !isDownloadReady {
 		return fmt.Errorf("the archive (%s) of upgrade resource (%s/%s) is not ready yet", archiveName, upgradeLogNamespace, upgradeLogName)
 	}
@@ -175,14 +169,7 @@ func (h Handler) generateArchive(rw http.ResponseWriter, req *http.Request) erro
 		return fmt.Errorf("failed to get the upgradelog resource (%s/%s): %w", upgradeLogNamespace, upgradeLogName, err)
 	}
 
-	isUpgradeLogReady := false
-	for _, condition := range upgradeLog.Status.Conditions {
-		if condition.Type == harvesterv1.UpgradeLogReady && condition.Status == corev1.ConditionTrue {
-			isUpgradeLogReady = true
-			break
-		}
-	}
-
+	isUpgradeLogReady := checkConditionReady(upgradeLog.Status.Conditions, harvesterv1.UpgradeLogReady)
 	if !isUpgradeLogReady {
 		return fmt.Errorf("the logging infrastructure for the upgradelog resource (%s/%s) is not ready yet", upgradeLogNamespace, upgradeLogName)
 	}
@@ -241,6 +228,17 @@ func (h Handler) doRetry(req *http.Request) (*http.Response, error) {
 
 	// return the last error
 	return nil, err
+}
+
+func checkConditionReady(conditions []harvesterv1.Condition, targetCondition condition.Cond) bool {
+	isReady := false
+	for _, condition := range conditions {
+		if condition.Type == targetCondition && condition.Status == corev1.ConditionTrue {
+			isReady = true
+			break
+		}
+	}
+	return isReady
 }
 
 func prepareLogPackager(upgradeLog *harvesterv1.UpgradeLog, imageVersion, archiveName, component string) *batchv1.Job {
