@@ -138,6 +138,7 @@ func (h Handler) downloadArchive(rw http.ResponseWriter, req *http.Request) erro
 		return fmt.Errorf("failed to create the download request for the archive (%s): %w", archiveName, err)
 	}
 
+	// Get the archive from the log downloader
 	downloadResp, err := h.doRetry(downloadReq)
 	if err != nil {
 		return fmt.Errorf("failed to send the download request for the archive (%s): %w", archiveName, err)
@@ -200,6 +201,9 @@ func (h Handler) generateArchive(rw http.ResponseWriter, req *http.Request) erro
 	// TODO: update with the real size later
 	archiveSize := int64(0)
 
+	// To decide the PodAffinity for the log packager Pod
+	// 1. If the logging infrastructure has been torn down, the packager Pod should be with the downloader
+	// 2. If the logging infrastructure still exists, the packager Pod should be with the aggregator (fluentd)
 	var component string
 	if harvesterv1.UpgradeEnded.IsTrue(upgradeLog) {
 		component = util.UpgradeLogDownloaderComponent

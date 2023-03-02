@@ -79,6 +79,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 	}
 	logrus.Infof("Processing UpgradeLog %s/%s", upgradeLog.Namespace, upgradeLog.Name)
 
+	// Initialize the UpgradeLog resource
 	if harvesterv1.UpgradeLogReady.GetStatus(upgradeLog) == "" {
 		logrus.Info("Initialize UpgradeLog")
 		toUpdate := upgradeLog.DeepCopy()
@@ -86,6 +87,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		return h.upgradeLogClient.Update(toUpdate)
 	}
 
+	// Try to bring up the logging operator by installing rancher-logging ManagedChart
 	if harvesterv1.LoggingOperatorDeployed.GetStatus(upgradeLog) == "" {
 		logrus.Info("Check if there are any existing logging-operator")
 
@@ -93,6 +95,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		harvesterv1.LoggingOperatorDeployed.CreateUnknownIfNotExists(toUpdate)
 
 		// Detect rancher-logging Addon
+
 		addon, err := h.addonCache.Get(util.CattleLoggingSystemNamespaceName, util.RancherLoggingName)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
@@ -132,14 +135,17 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		return h.upgradeLogClient.Update(toUpdate)
 	}
 
+	// Try to scaffold the logging infrastructure by creating a customized Logging resource
 	if harvesterv1.LoggingOperatorDeployed.IsTrue(upgradeLog) && harvesterv1.InfraScaffolded.GetStatus(upgradeLog) == "" {
 		logrus.Info("Start to scaffold the logging infrastructure for upgrade procedure")
 
 		toUpdate := upgradeLog.DeepCopy()
 
+		// The volume acts as a central log storage for fluentd
 		if _, err := h.pvcClient.Create(preparePvc(upgradeLog)); err != nil && !apierrors.IsAlreadyExists(err) {
 			return nil, err
 		}
+		// The creation of the Logging resource will indirectly bring up fluent-bit DaemonSet and fluentd StatefulSet
 		if _, err := h.loggingClient.Create(prepareLogging(upgradeLog)); err != nil && !apierrors.IsAlreadyExists(err) {
 			return nil, err
 		}
@@ -152,6 +158,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 
 		toUpdate := upgradeLog.DeepCopy()
 
+		// These two annotations denote the readiness of the indirect resources respectively
 		fluentBitAnnotation, ok := upgradeLog.Annotations[upgradeLogFluentBitAnnotation]
 		if !ok {
 			return upgradeLog, nil
@@ -161,6 +168,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 			return upgradeLog, nil
 		}
 
+		// Stay in the same phase until both fluent-bit and fluentd are ready
 		isInfraReady := (fluentBitAnnotation == upgradeLogFluentBitReady) && (fluentdAnnotation == upgradeLogFluentdReady)
 		if !isInfraReady {
 			return upgradeLog, nil
@@ -171,6 +179,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		return h.upgradeLogClient.Update(toUpdate)
 	}
 
+	// Try to install the rules. The desired logs will start to be collected once the rules are active
 	if harvesterv1.InfraScaffolded.IsTrue(upgradeLog) && harvesterv1.UpgradeLogReady.IsUnknown(upgradeLog) {
 		logrus.Info("Check if the log-collecting rules are installed")
 
@@ -179,6 +188,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		clusterFlowAnnotation := upgradeLog.Annotations[upgradeLogClusterFlowAnnotation]
 		clusterOutputAnnotation := upgradeLog.Annotations[upgradeLogClusterOutputAnnotation]
 
+		// Move to the next phase if both the ClusterFlow and ClusterOutput are active
 		isLogReady := (clusterOutputAnnotation == upgradeLogClusterOutputReady) && (clusterFlowAnnotation == upgradeLogClusterFlowReady)
 		if isLogReady {
 			logrus.Info("Log-collecting rules exist and are activated")
@@ -196,6 +206,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		return upgradeLog, nil
 	}
 
+	// Signal to proceed the original upgrade flow
 	if harvesterv1.UpgradeLogReady.IsTrue(upgradeLog) && harvesterv1.UpgradeEnded.GetStatus(upgradeLog) == "" {
 		logrus.Info("Logging infrastructure is ready, proceed the upgrade procedure")
 
@@ -230,6 +241,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		return h.upgradeLogClient.Update(toUpdate)
 	}
 
+	// Spin up the log downloader to serve the log downloading requests
 	if harvesterv1.UpgradeEnded.IsUnknown(upgradeLog) && harvesterv1.DownloadReady.GetStatus(upgradeLog) == "" {
 		logrus.Info("Spin up downloader")
 
@@ -254,6 +266,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		return h.upgradeLogClient.Update(toUpdate)
 	}
 
+	// Tear down the loggin infrastructure but keep the log downloader and the archive volume
 	if harvesterv1.UpgradeEnded.IsTrue(upgradeLog) {
 		upgradeLogState, ok := upgradeLog.Annotations[upgradeLogStateAnnotation]
 		if !ok {
