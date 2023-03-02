@@ -127,7 +127,7 @@ func (h Handler) downloadArchive(rw http.ResponseWriter, req *http.Request) erro
 		return fmt.Errorf("the archive (%s) of upgrade resource (%s/%s) is not ready yet", archiveName, upgradeLogNamespace, upgradeLogName)
 	}
 
-	downloaderPodIP, err := getDownloaderPodIP(h.podCache, upgradeLog)
+	downloaderPodIP, err := h.getDownloaderPodIP(upgradeLog)
 	if err != nil {
 		return fmt.Errorf("failed to get the downloader pod IP with upgradelog resource (%s/%s): %w", upgradeLogNamespace, upgradeLogName, err)
 	}
@@ -139,7 +139,7 @@ func (h Handler) downloadArchive(rw http.ResponseWriter, req *http.Request) erro
 		return fmt.Errorf("failed to create the download request for the archive (%s): %w", archiveName, err)
 	}
 
-	downloadResp, err := h.httpClient.Do(downloadReq)
+	downloadResp, err := h.doRetry(downloadReq)
 	if err != nil {
 		return fmt.Errorf("failed to send the download request for the archive (%s): %w", archiveName, err)
 	}
@@ -221,13 +221,32 @@ func (h Handler) generateArchive(rw http.ResponseWriter, req *http.Request) erro
 	return nil
 }
 
-func getDownloaderPodIP(podCache ctlcorev1.PodCache, upgradeLog *harvesterv1.UpgradeLog) (string, error) {
+func (h Handler) doRetry(req *http.Request) (*http.Response, error) {
+	const retry = 15
+	var (
+		err  error
+		resp *http.Response
+	)
+
+	for i := 0; i < retry; i++ {
+		resp, err = h.httpClient.Do(req)
+		if err == nil {
+			return resp, nil
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+	// return the last error
+	return nil, err
+}
+
+func (h Handler) getDownloaderPodIP(upgradeLog *harvesterv1.UpgradeLog) (string, error) {
 	sets := labels.Set{
 		util.LabelUpgradeLog:          upgradeLog.Name,
 		util.LabelUpgradeLogComponent: util.UpgradeLogDownloaderComponent,
 	}
 
-	pods, err := podCache.List(upgradeLog.Namespace, sets.AsSelector())
+	pods, err := h.podCache.List(upgradeLog.Namespace, sets.AsSelector())
 	if err != nil {
 		return "", err
 
