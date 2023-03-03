@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	archiveSuffix                = ".tar.gz"
+	archiveSuffix                = ".zip"
 	defaultJobBackoffLimit int32 = 5
 	logPackagingScript           = `
 #!/usr/bin/env sh
@@ -34,7 +34,6 @@ set -ex
 
 echo "start to package upgrade logs"
 
-archive="$ARCHIVE_NAME.tar.gz"
 tmpdir=$(mktemp -d)
 mkdir $tmpdir/logs
 
@@ -44,13 +43,13 @@ for f in *.log
 do
     cat $f | awk '{$1=$2=""; print $0}' | jq -r .message > $tmpdir/logs/$f
 	if [ $? -eq 4 ]; then
-	    echo "Incomplete JSON format log line, abort processing this file."
+	    echo "Incomplete JSON format log line, abort processing the file $f."
 	    continue
 	fi
 done
 
-tar -zcvf /archive/$archive -C $tmpdir .
-ls -l /archive/$archive
+cd $tmpdir
+zip -r /archive/$ARCHIVE_NAME ./logs/
 echo "done"
 `
 )
