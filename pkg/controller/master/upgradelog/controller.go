@@ -135,9 +135,9 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		return h.upgradeLogClient.Update(toUpdate)
 	}
 
-	// Try to scaffold the logging infrastructure by creating a customized Logging resource
-	if harvesterv1.LoggingOperatorDeployed.IsTrue(upgradeLog) && harvesterv1.InfraScaffolded.GetStatus(upgradeLog) == "" {
-		logrus.Info("Start to scaffold the logging infrastructure for upgrade procedure")
+	// Try to establish the logging infrastructure by creating a customized Logging resource
+	if harvesterv1.LoggingOperatorDeployed.IsTrue(upgradeLog) && harvesterv1.InfraReady.GetStatus(upgradeLog) == "" {
+		logrus.Info("Start to create the logging infrastructure for the upgrade procedure")
 
 		toUpdate := upgradeLog.DeepCopy()
 
@@ -150,10 +150,10 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 			return nil, err
 		}
 
-		harvesterv1.InfraScaffolded.CreateUnknownIfNotExists(toUpdate)
+		harvesterv1.InfraReady.CreateUnknownIfNotExists(toUpdate)
 
 		return h.upgradeLogClient.Update(toUpdate)
-	} else if harvesterv1.LoggingOperatorDeployed.IsTrue(upgradeLog) && harvesterv1.InfraScaffolded.IsUnknown(upgradeLog) {
+	} else if harvesterv1.LoggingOperatorDeployed.IsTrue(upgradeLog) && harvesterv1.InfraReady.IsUnknown(upgradeLog) {
 		logrus.Info("Check if the logging infrastructure is ready")
 
 		toUpdate := upgradeLog.DeepCopy()
@@ -175,12 +175,12 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		}
 
 		logrus.Info("Logging infrastructure is ready")
-		setInfraScaffoldedCondition(toUpdate, corev1.ConditionTrue, "", "")
+		setInfraReadyCondition(toUpdate, corev1.ConditionTrue, "", "")
 		return h.upgradeLogClient.Update(toUpdate)
 	}
 
 	// Try to install the rules. The desired logs will start to be collected once the rules are active
-	if harvesterv1.InfraScaffolded.IsTrue(upgradeLog) && harvesterv1.UpgradeLogReady.IsUnknown(upgradeLog) {
+	if harvesterv1.InfraReady.IsTrue(upgradeLog) && harvesterv1.UpgradeLogReady.IsUnknown(upgradeLog) {
 		logrus.Info("Check if the log-collecting rules are installed")
 
 		toUpdate := upgradeLog.DeepCopy()

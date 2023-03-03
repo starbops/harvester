@@ -620,7 +620,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 				upgradeLog: newTestUpgradeLogBuilder().
 					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionUnknown, "", "").Build(),
+					InfraReadyCondition(corev1.ConditionUnknown, "", "").Build(),
 			},
 		},
 		{
@@ -631,14 +631,14 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 					WithAnnotation(upgradeLogFluentBitAnnotation, upgradeLogFluentBitReady).
 					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionUnknown, "", "").Build(),
+					InfraReadyCondition(corev1.ConditionUnknown, "", "").Build(),
 			},
 			expected: output{
 				upgradeLog: newTestUpgradeLogBuilder().
 					WithAnnotation(upgradeLogFluentBitAnnotation, upgradeLogFluentBitReady).
 					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionUnknown, "", "").Build(),
+					InfraReadyCondition(corev1.ConditionUnknown, "", "").Build(),
 			},
 		},
 		{
@@ -649,18 +649,18 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 					WithAnnotation(upgradeLogFluentdAnnotation, upgradeLogFluentdReady).
 					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionUnknown, "", "").Build(),
+					InfraReadyCondition(corev1.ConditionUnknown, "", "").Build(),
 			},
 			expected: output{
 				upgradeLog: newTestUpgradeLogBuilder().
 					WithAnnotation(upgradeLogFluentdAnnotation, upgradeLogFluentdReady).
 					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionUnknown, "", "").Build(),
+					InfraReadyCondition(corev1.ConditionUnknown, "", "").Build(),
 			},
 		},
 		{
-			name: "The underlying logging infrastructure is ready, should therefore mark the InfraScaffolded condition as ready",
+			name: "The underlying logging infrastructure is ready, should therefore mark the InfraReady condition as ready",
 			given: input{
 				key: testUpgradeLogName,
 				upgradeLog: newTestUpgradeLogBuilder().
@@ -668,7 +668,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 					WithAnnotation(upgradeLogFluentdAnnotation, upgradeLogFluentdReady).
 					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionUnknown, "", "").Build(),
+					InfraReadyCondition(corev1.ConditionUnknown, "", "").Build(),
 			},
 			expected: output{
 				upgradeLog: newTestUpgradeLogBuilder().
@@ -676,17 +676,17 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 					WithAnnotation(upgradeLogFluentdAnnotation, upgradeLogFluentdReady).
 					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").Build(),
+					InfraReadyCondition(corev1.ConditionTrue, "", "").Build(),
 			},
 		},
 		{
-			name: "The InfraScaffolded condition is marked as ready, should therefore installed the log-collecting rules",
+			name: "The InfraReady condition is marked as ready, should therefore installed the log-collecting rules",
 			given: input{
 				key: testUpgradeLogName,
 				upgradeLog: newTestUpgradeLogBuilder().
 					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").Build(),
+					InfraReadyCondition(corev1.ConditionTrue, "", "").Build(),
 			},
 			expected: output{
 				clusterFlow:   prepareClusterFlow(newTestUpgradeLogBuilder().Build()),
@@ -694,7 +694,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 				upgradeLog: newTestUpgradeLogBuilder().
 					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").Build(),
+					InfraReadyCondition(corev1.ConditionTrue, "", "").Build(),
 			},
 		},
 		{
@@ -706,7 +706,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 					WithAnnotation(upgradeLogClusterOutputAnnotation, upgradeLogClusterOutputReady).
 					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").Build(),
+					InfraReadyCondition(corev1.ConditionTrue, "", "").Build(),
 			},
 			expected: output{
 				upgradeLog: newTestUpgradeLogBuilder().
@@ -715,7 +715,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 					WithAnnotation(upgradeLogStateAnnotation, upgradeLogStateCollecting).
 					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").Build(),
+					InfraReadyCondition(corev1.ConditionTrue, "", "").Build(),
 			},
 		},
 		{
@@ -726,7 +726,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 				upgradeLog: newTestUpgradeLogBuilder().
 					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").Build(),
+					InfraReadyCondition(corev1.ConditionTrue, "", "").Build(),
 			},
 			expected: output{
 				upgrade: newTestUpgradeBuilder().
@@ -735,7 +735,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 				upgradeLog: newTestUpgradeLogBuilder().
 					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").
+					InfraReadyCondition(corev1.ConditionTrue, "", "").
 					UpgradeEndedCondition(corev1.ConditionUnknown, "", "").Build(),
 			},
 		},
@@ -746,13 +746,13 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 				upgradeLog: newTestUpgradeLogBuilder().
 					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").Build(),
+					InfraReadyCondition(corev1.ConditionTrue, "", "").Build(),
 			},
 			expected: output{
 				upgradeLog: newTestUpgradeLogBuilder().
 					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").
+					InfraReadyCondition(corev1.ConditionTrue, "", "").
 					UpgradeEndedCondition(corev1.ConditionTrue, "", "").Build(),
 			},
 		},
@@ -764,7 +764,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 				upgradeLog: newTestUpgradeLogBuilder().
 					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").
+					InfraReadyCondition(corev1.ConditionTrue, "", "").
 					UpgradeEndedCondition(corev1.ConditionUnknown, "", "").Build(),
 			},
 			expected: output{
@@ -773,7 +773,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 				upgradeLog: newTestUpgradeLogBuilder().
 					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").
+					InfraReadyCondition(corev1.ConditionTrue, "", "").
 					UpgradeEndedCondition(corev1.ConditionUnknown, "", "").
 					DownloadReadyCondition(corev1.ConditionUnknown, "", "").Build(),
 			},
@@ -790,7 +790,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 					WithAnnotation(upgradeLogStateAnnotation, upgradeLogStateCollecting).
 					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").
+					InfraReadyCondition(corev1.ConditionTrue, "", "").
 					UpgradeEndedCondition(corev1.ConditionTrue, "", "").
 					DownloadReadyCondition(corev1.ConditionTrue, "", "").Build(),
 			},
@@ -800,7 +800,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 					WithAnnotation(upgradeLogStateAnnotation, upgradeLogStateStopped).
 					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
-					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").
+					InfraReadyCondition(corev1.ConditionTrue, "", "").
 					UpgradeEndedCondition(corev1.ConditionTrue, "", "").
 					DownloadReadyCondition(corev1.ConditionTrue, "", "").Build(),
 			},

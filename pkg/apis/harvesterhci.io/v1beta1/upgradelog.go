@@ -7,7 +7,7 @@ import (
 
 var (
 	LoggingOperatorDeployed condition.Cond = "LoggingOperatorReady"
-	InfraScaffolded         condition.Cond = "InfraReady"
+	InfraReady              condition.Cond = "InfraReady"
 	UpgradeLogReady         condition.Cond = "Started"
 	UpgradeEnded            condition.Cond = "Stopped"
 	DownloadReady           condition.Cond = "DownloadReady"
@@ -16,7 +16,7 @@ var (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:scope=Namespaced
-// +kubebuilder:printcolumn:name="UPGRADE",type="string",JSONPath=`.spec.upgrade`
+// +kubebuilder:printcolumn:name="UPGRADE",type="string",JSONPath=`.spec.upgradeName`
 
 type UpgradeLog struct {
 	metav1.TypeMeta   `json:",inline"`

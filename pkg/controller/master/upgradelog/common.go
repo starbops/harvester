@@ -419,10 +419,10 @@ func setOperatorDeployedCondition(upgradeLog *harvesterv1.UpgradeLog, status cor
 	harvesterv1.LoggingOperatorDeployed.Message(upgradeLog, message)
 }
 
-func setInfraScaffoldedCondition(upgradeLog *harvesterv1.UpgradeLog, status corev1.ConditionStatus, reason, message string) {
-	harvesterv1.InfraScaffolded.SetStatus(upgradeLog, string(status))
-	harvesterv1.InfraScaffolded.Reason(upgradeLog, reason)
-	harvesterv1.InfraScaffolded.Message(upgradeLog, message)
+func setInfraReadyCondition(upgradeLog *harvesterv1.UpgradeLog, status corev1.ConditionStatus, reason, message string) {
+	harvesterv1.InfraReady.SetStatus(upgradeLog, string(status))
+	harvesterv1.InfraReady.Reason(upgradeLog, reason)
+	harvesterv1.InfraReady.Message(upgradeLog, message)
 }
 
 func setUpgradeLogReadyCondition(upgradeLog *harvesterv1.UpgradeLog, status corev1.ConditionStatus, reason, message string) {
@@ -541,8 +541,8 @@ func (p *upgradeLogBuilder) OperatorDeployedCondition(status corev1.ConditionSta
 	return p
 }
 
-func (p *upgradeLogBuilder) InfraScaffoldedCondition(status corev1.ConditionStatus, reason, message string) *upgradeLogBuilder {
-	setInfraScaffoldedCondition(p.upgradeLog, status, reason, message)
+func (p *upgradeLogBuilder) InfraReadyCondition(status corev1.ConditionStatus, reason, message string) *upgradeLogBuilder {
+	setInfraReadyCondition(p.upgradeLog, status, reason, message)
 	return p
 }
 
