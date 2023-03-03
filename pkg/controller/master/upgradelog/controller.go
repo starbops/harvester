@@ -192,6 +192,10 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		isLogReady := (clusterOutputAnnotation == upgradeLogClusterOutputReady) && (clusterFlowAnnotation == upgradeLogClusterFlowReady)
 		if isLogReady {
 			logrus.Info("Log-collecting rules exist and are activated")
+			if toUpdate.Annotations == nil {
+				toUpdate.Annotations = make(map[string]string, 1)
+			}
+			toUpdate.Annotations[upgradeLogStateAnnotation] = upgradeLogStateCollecting
 			setUpgradeLogReadyCondition(toUpdate, corev1.ConditionTrue, "", "")
 			return h.upgradeLogClient.Update(toUpdate)
 		}
@@ -210,14 +214,20 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 	if harvesterv1.UpgradeLogReady.IsTrue(upgradeLog) && harvesterv1.UpgradeEnded.GetStatus(upgradeLog) == "" {
 		logrus.Info("Logging infrastructure is ready, proceed the upgrade procedure")
 
+		toUpdate := upgradeLog.DeepCopy()
+
 		// handle corresponding upgrade resource
 		upgradeName := upgradeLog.Spec.UpgradeName
 		upgrade, err := h.upgradeCache.Get(util.HarvesterSystemNamespaceName, upgradeName)
 		if err != nil {
+			// if the corresponding upgrade resource is not found, the upgradelog should be torn down immediately
+			if apierrors.IsNotFound(err) {
+				setUpgradeEndedCondition(toUpdate, corev1.ConditionTrue, "", "")
+				return h.upgradeLogClient.Update(toUpdate)
+			}
 			return nil, err
 		}
 		upgradeToUpdate := upgrade.DeepCopy()
-
 		if upgradeToUpdate.Labels == nil {
 			upgradeToUpdate.Labels = map[string]string{}
 		}
@@ -231,11 +241,6 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 		}
 
 		// handle upgradeLog resource
-		toUpdate := upgradeLog.DeepCopy()
-		if toUpdate.Annotations == nil {
-			toUpdate.Annotations = make(map[string]string, 1)
-		}
-		toUpdate.Annotations[upgradeLogStateAnnotation] = upgradeLogStateCollecting
 		harvesterv1.UpgradeEnded.CreateUnknownIfNotExists(toUpdate)
 
 		return h.upgradeLogClient.Update(toUpdate)

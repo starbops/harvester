@@ -712,6 +712,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 				upgradeLog: newTestUpgradeLogBuilder().
 					WithAnnotation(upgradeLogClusterFlowAnnotation, upgradeLogClusterFlowReady).
 					WithAnnotation(upgradeLogClusterOutputAnnotation, upgradeLogClusterOutputReady).
+					WithAnnotation(upgradeLogStateAnnotation, upgradeLogStateCollecting).
 					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
 					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").Build(),
@@ -732,11 +733,27 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 					WithLabel(util.LabelUpgradeState, util.UpgradeStateLoggingInfraPrepared).
 					LogReadyCondition(corev1.ConditionTrue, "", "").Build(),
 				upgradeLog: newTestUpgradeLogBuilder().
-					WithAnnotation(upgradeLogStateAnnotation, upgradeLogStateCollecting).
 					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
 					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
 					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").
 					UpgradeEndedCondition(corev1.ConditionUnknown, "", "").Build(),
+			},
+		},
+		{
+			name: "The UpgradeLogReady condition is ready but the Upgrade resource is missing, should therefore set the UpgradeEnded condition as True",
+			given: input{
+				key: testUpgradeLogName,
+				upgradeLog: newTestUpgradeLogBuilder().
+					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
+					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
+					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").Build(),
+			},
+			expected: output{
+				upgradeLog: newTestUpgradeLogBuilder().
+					UpgradeLogReadyCondition(corev1.ConditionTrue, "", "").
+					OperatorDeployedCondition(corev1.ConditionTrue, "", "").
+					InfraScaffoldedCondition(corev1.ConditionTrue, "", "").
+					UpgradeEndedCondition(corev1.ConditionTrue, "", "").Build(),
 			},
 		},
 		{
