@@ -581,8 +581,8 @@ func newAddonBuilder(name string) *addonBuilder {
 	}
 }
 
-func (p *addonBuilder) Enable() *addonBuilder {
-	p.addon.Status.Status = harvesterv1.AddonEnabled
+func (p *addonBuilder) Enable(value bool) *addonBuilder {
+	p.addon.Spec.Enabled = true
 	return p
 }
 

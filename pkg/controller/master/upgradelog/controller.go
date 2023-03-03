@@ -103,7 +103,7 @@ func (h *handler) OnUpgradeLogChange(_ string, upgradeLog *harvesterv1.UpgradeLo
 			}
 			logrus.Info("rancher-logging Addon is not installed")
 		} else {
-			if addon.Status.Status == harvesterv1.AddonEnabled {
+			if addon.Spec.Enabled {
 				setOperatorDeployedCondition(toUpdate, corev1.ConditionTrue, "Skipped", "rancher-logging Addon is enabled")
 				return h.upgradeLogClient.Update(toUpdate)
 			}

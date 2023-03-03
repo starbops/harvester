@@ -584,7 +584,7 @@ func TestHandler_OnUpgradeLogChange(t *testing.T) {
 			name: "There exists an enabled rancher-logging Addon, therefore skip the ManagedChart installation",
 			given: input{
 				key:   testUpgradeLogName,
-				addon: newAddonBuilder(util.RancherLoggingName).Enable().Build(),
+				addon: newAddonBuilder(util.RancherLoggingName).Enable(true).Build(),
 				upgradeLog: newTestUpgradeLogBuilder().
 					UpgradeLogReadyCondition(corev1.ConditionUnknown, "", "").Build(),
 			},
