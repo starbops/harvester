@@ -567,22 +567,26 @@ func (h *handler) OnUpgradeChange(_ string, upgrade *harvesterv1.Upgrade) (*harv
 	}
 	logrus.Debugf("Processing Upgrade %s/%s", upgrade.Namespace, upgrade.Name)
 
-	upgradeLogName := upgrade.Status.UpgradeLog
-	if upgradeLogName == "" {
-		logrus.Info("No related UpgradeLog resource found, skip purging")
+	if !upgrade.Spec.LogEnabled {
 		return upgrade, nil
-	}
-	upgradeLog, err := h.upgradeLogCache.Get(util.HarvesterSystemNamespaceName, upgradeLogName)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			logrus.Debugf("The corresponding UpgradeLog %s/%s is not found, skip purging", util.HarvesterSystemNamespaceName, upgradeLogName)
-			return upgrade, nil
-		}
-		return nil, err
 	}
 
 	if upgrade.Labels[util.LabelUpgradeReadMessage] == "true" {
-		logrus.Infof("Purging UpgradeLog %s/%s and its relevant sub-components", upgradeLog.Namespace, upgradeLog.Name)
+		upgradeLogName := upgrade.Status.UpgradeLog
+		if upgradeLogName == "" {
+			logrus.Debug("No related UpgradeLog resource found, skip purging")
+			return upgrade, nil
+		}
+		upgradeLog, err := h.upgradeLogCache.Get(util.HarvesterSystemNamespaceName, upgradeLogName)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				logrus.Debugf("The corresponding UpgradeLog %s/%s is not found, skip purging", util.HarvesterSystemNamespaceName, upgradeLogName)
+				return upgrade, nil
+			}
+			return nil, err
+		}
+
+		logrus.Infof("Purging UpgradeLog %s/%s and its sub-components", upgradeLog.Namespace, upgradeLog.Name)
 		if err := h.upgradeLogClient.Delete(upgradeLog.Namespace, upgradeLog.Name, &metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 			return upgrade, err
 		}
@@ -619,9 +623,24 @@ func (h *handler) stopCollect(upgradeLog *harvesterv1.UpgradeLog) error {
 }
 
 func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog) error {
-	logrus.Info("Removing logging-operator ManagedChart if any")
+	// Cleanup the relationship from its corresponding Upgrade resource
+	upgradeName := upgradeLog.Spec.UpgradeName
+	upgrade, err := h.upgradeCache.Get(util.HarvesterSystemNamespaceName, upgradeName)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	upgradeToUpdate := upgrade.DeepCopy()
+	upgradeToUpdate.Status.UpgradeLog = ""
+	if _, err = h.upgradeClient.Update(upgradeToUpdate); err != nil {
+		return err
+	}
 
-	err := h.managedChartClient.Delete(util.FleetLocalNamespaceName, name.SafeConcatName(upgradeLog.Name, util.UpgradeLogOperatorComponent), &metav1.DeleteOptions{})
+	// Remove the ManagedChart if the UpgradeLog resource is deleted before normal tear down
+	logrus.Info("Removing logging-operator ManagedChart if any")
+	err = h.managedChartClient.Delete(util.FleetLocalNamespaceName, name.SafeConcatName(upgradeLog.Name, util.UpgradeLogOperatorComponent), &metav1.DeleteOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}

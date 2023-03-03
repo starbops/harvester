@@ -373,7 +373,7 @@ func (h *upgradeHandler) cleanup(upgrade *harvesterv1.Upgrade, cleanJobs bool) e
 	}
 
 	// tear down logging infra if any
-	if upgrade.Spec.LogEnabled && upgrade.Status.UpgradeLog != "" {
+	if harvesterv1.LogReady.IsTrue(upgrade) && upgrade.Status.UpgradeLog != "" {
 		upgradeLog, err := h.upgradeLogCache.Get(upgradeNamespace, upgrade.Status.UpgradeLog)
 		if err != nil {
 			if apierrors.IsNotFound(err) {

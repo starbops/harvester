@@ -475,6 +475,11 @@ func (p *upgradeBuilder) WithLabel(key, value string) *upgradeBuilder {
 	return p
 }
 
+func (p *upgradeBuilder) LogEnable(value bool) *upgradeBuilder {
+	p.upgrade.Spec.LogEnabled = value
+	return p
+}
+
 func (p *upgradeBuilder) Build() *harvesterv1.Upgrade {
 	return p.upgrade
 }

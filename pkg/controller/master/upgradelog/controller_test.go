@@ -469,12 +469,14 @@ func TestHandler_OnUpgradeChange(t *testing.T) {
 				key: testUpgradeName,
 				upgrade: newTestUpgradeBuilder().
 					WithLabel(util.LabelUpgradeReadMessage, "true").
+					LogEnable(true).
 					UpgradeLogStatus(testUpgradeLogName).Build(),
 				upgradeLog: newTestUpgradeLogBuilder().Build(),
 			},
 			expected: output{
 				upgrade: newTestUpgradeBuilder().
-					WithLabel(util.LabelUpgradeReadMessage, "true").Build(),
+					WithLabel(util.LabelUpgradeReadMessage, "true").
+					LogEnable(true).Build(),
 			},
 		},
 		{
