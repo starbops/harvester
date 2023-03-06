@@ -68,6 +68,7 @@ require (
 	github.com/guonaihong/gout v0.1.3
 	github.com/harvester/harvester-network-controller v0.1.7
 	github.com/iancoleman/strcase v0.2.0
+	github.com/jarcoal/httpmock v1.3.0
 	github.com/k3s-io/helm-controller v0.11.7
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20200331171230-d50e42f2b669
 	github.com/kubernetes-csi/external-snapshotter/v2 v2.1.3

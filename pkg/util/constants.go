@@ -39,6 +39,7 @@ const (
 	CattleLoggingSystemNamespaceName  = "cattle-logging-system"
 	HarvesterUpgradeImageRepository   = "rancher/harvester-upgrade"
 	HarvesterLonghornStorageClassName = "harvester-longhorn"
+	HarvesterClusterRepoSvcName       = "harvester-cluster-repo"
 
 	HTTPProxyEnv  = "HTTP_PROXY"
 	HTTPSProxyEnv = "HTTPS_PROXY"
