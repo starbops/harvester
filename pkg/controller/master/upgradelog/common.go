@@ -206,25 +206,13 @@ func prepareClusterFlow(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.ClusterFl
 				},
 				{
 					ClusterSelect: &loggingv1.ClusterSelect{
-						Labels: map[string]string{
-							"app.kubernetes.io/name": "harvester",
-						},
+						Labels:     map[string]string{},
 						Namespaces: []string{"harvester-system"},
 					},
 				},
 				{
 					ClusterSelect: &loggingv1.ClusterSelect{
-						Labels: map[string]string{
-							"longhorn.io/component": "instance-manager",
-						},
-						Namespaces: []string{"longhorn-system"},
-					},
-				},
-				{
-					ClusterSelect: &loggingv1.ClusterSelect{
-						Labels: map[string]string{
-							"app": "longhorn-manager",
-						},
+						Labels:     map[string]string{},
 						Namespaces: []string{"longhorn-system"},
 					},
 				},
@@ -243,22 +231,6 @@ func prepareClusterFlow(upgradeLog *harvesterv1.UpgradeLog) *loggingv1.ClusterFl
 						},
 						Namespaces:     []string{"cattle-system"},
 						ContainerNames: []string{"upgrade"},
-					},
-				},
-				{
-					ClusterSelect: &loggingv1.ClusterSelect{
-						Labels: map[string]string{
-							"harvesterhci.io/upgradeComponent": "manifest",
-						},
-						Namespaces: []string{"harvester-system"},
-					},
-				},
-				{
-					ClusterSelect: &loggingv1.ClusterSelect{
-						Labels: map[string]string{
-							"harvesterhci.io/upgradeComponent": "node",
-						},
-						Namespaces: []string{"harvester-system"},
 					},
 				},
 			},
