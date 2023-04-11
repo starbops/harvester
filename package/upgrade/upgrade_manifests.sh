@@ -228,6 +228,12 @@ upgrade_rancher() {
 
   cd $UPGRADE_TMP_DIR/rancher
 
+  # Enable trace log
+  tarball=rancher-${REPO_RANCHER_VERSION#v}.tgz
+  tar xzf $tarball
+  sed -i "/add-local.*/a\        - --trace" rancher/templates/deployment.yaml
+  tar zcf $tarball rancher
+
   ./helm get values rancher -n cattle-system -o yaml >values.yaml
   echo "Rancher values:"
   cat values.yaml
@@ -257,7 +263,8 @@ upgrade_rancher() {
   kubectl delete clusterrepos.catalog.cattle.io rancher-partner-charts
   kubectl delete settings.management.cattle.io chart-default-branch
 
-  REPO_RANCHER_VERSION=$REPO_RANCHER_VERSION yq -e e '.rancherImageTag = strenv(REPO_RANCHER_VERSION)' values.yaml -i
+  yq -e e '.rancherImage = "rancher/rancher"' values.yaml -i
+  yq -e e '.rancherImageTag = "v2.7.5-rc2"' values.yaml -i
   ./helm upgrade rancher ./*.tgz --namespace cattle-system -f values.yaml --timeout 10m --wait
 
   # Wait until new version ready
