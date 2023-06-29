@@ -239,6 +239,10 @@ wait_evacuation_pdb_gone()
   done
 }
 
+recover_rancher_system_agent() {
+  chroot "$HOST_DIR" /bin/bash -c "rm -rf /run/systemd/system/rancher-system-agent.service.d && systemctl daemon-reload && systemctl restart rancher-system-agent.service"
+}
+
 wait_longhorn_engines() {
   node_count=$(kubectl get nodes --selector=harvesterhci.io/managed=true -o json | jq -r '.items | length')
 
@@ -365,6 +369,8 @@ EOF
 }
 
 command_pre_drain() {
+  recover_rancher_system_agent
+
   wait_longhorn_engines
 
   shutdown_non_migrate_able_vms
@@ -584,6 +590,8 @@ command_post_drain() {
 
 command_single_node_upgrade() {
   echo "Upgrade single node"
+
+  recover_rancher_system_agent
 
   wait_repo
   detect_repo
