@@ -613,10 +613,6 @@ command_single_node_upgrade() {
   echo "wait for fleet bundles before upgrading RKE2"
   # wait all fleet bundles in limited time
   wait_for_fleet_bundles
-  # scale down fleet-agent, scale up will be done in upgrade controller
-  echo "scale down fleet-agent"
-  kubectl scale --replicas=0 deployment/fleet-agent -n cattle-fleet-local-system
-  kubectl rollout status deployment fleet-agent -n cattle-fleet-local-system
 
   # update max-pods to 200 #
   set_max_pods
@@ -627,8 +623,6 @@ command_single_node_upgrade() {
   clean_rke2_archives
 
   convert_nodenetwork_to_vlanconfig
-
-  # the fleet-agent will be scaled up via the pkg/controller/upgrade/upgrade_controller.go
 
   # Upgrade OS
   upgrade_os
