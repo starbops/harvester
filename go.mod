@@ -87,7 +87,9 @@ require (
 	github.com/rancher/system-upgrade-controller/pkg/apis v0.0.0-20210727200656-10b094e30007
 	github.com/rancher/wharfie v0.5.3
 	github.com/rancher/wrangler v1.1.1
+	github.com/shopspring/decimal v1.3.1
 	github.com/sirupsen/logrus v1.9.2
+	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.3
 	github.com/tidwall/gjson v1.9.3
 	github.com/urfave/cli v1.22.13
@@ -105,12 +107,14 @@ require (
 	k8s.io/apimachinery v0.27.1
 	k8s.io/apiserver v0.27.1
 	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/component-helpers v0.27.1
 	k8s.io/gengo v0.0.0-20220902162205-c0856e24416d
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f
 	k8s.io/kubectl v0.25.0
 	k8s.io/kubelet v0.26.10
 	k8s.io/utils v0.0.0-20230505201702-9f6742963106
 	kubevirt.io/api v1.0.0
+	kubevirt.io/client-go v1.0.0
 	kubevirt.io/containerized-data-importer-api v1.57.0-alpha1
 	kubevirt.io/kubevirt v1.0.0
 	sigs.k8s.io/cluster-api v1.4.8
@@ -258,10 +262,8 @@ require (
 	github.com/rubenv/sql-migrate v1.1.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
-	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/slok/goresilience v0.2.0 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
-	github.com/spf13/cobra v1.7.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
@@ -302,7 +304,6 @@ require (
 	k8s.io/kube-aggregator v0.26.3 // indirect
 	k8s.io/kubernetes v1.27.1 // indirect
 	k8s.io/mount-utils v0.27.1 // indirect
-	kubevirt.io/client-go v1.0.0 // indirect
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 // indirect
 	oras.land/oras-go v1.2.0 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.1 // indirect
