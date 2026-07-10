@@ -3,6 +3,9 @@ package upgradelog
 import (
 	"context"
 
+	fleetv1alpha1 "github.com/rancher/fleet/pkg/apis/fleet.cattle.io/v1alpha1"
+	"github.com/rancher/wrangler/v3/pkg/generic"
+
 	"github.com/harvester/harvester/pkg/config"
 )
 
@@ -31,36 +34,49 @@ func Register(ctx context.Context, management *config.Management, options config
 	loggingController := management.LoggingFactory.Logging().V1beta1().Logging()
 	fbagentController := management.LoggingFactory.Logging().V1beta1().FluentbitAgent()
 	managedChartController := management.RancherManagementFactory.Management().V3().ManagedChart()
+	fleetController := management.FleetFactory.Fleet().V1alpha1()
+	bundleController := fleetController.Bundle()
+	fleetClusterController := fleetController.Cluster()
+	bundleDeploymentController := generic.NewController[*fleetv1alpha1.BundleDeployment, *fleetv1alpha1.BundleDeploymentList](
+		fleetv1alpha1.SchemeGroupVersion.WithKind("BundleDeployment"),
+		fleetv1alpha1.BundleDeploymentResourceNamePlural,
+		true,
+		management.FleetFactory.ControllerFactory(),
+	)
 	pvcController := management.CoreFactory.Core().V1().PersistentVolumeClaim()
 	serviceController := management.CoreFactory.Core().V1().Service()
 	statefulSetController := management.AppsFactory.Apps().V1().StatefulSet()
 	upgradeController := management.HarvesterFactory.Harvesterhci().V1beta1().Upgrade()
 
 	handler := &handler{
-		ctx:                 ctx,
-		namespace:           options.Namespace,
-		addonCache:          addonController.Cache(),
-		clusterFlowClient:   clusterFlowController,
-		clusterOutputClient: clusterOutputController,
-		daemonSetClient:     daemonSetController,
-		daemonSetCache:      daemonSetController.Cache(),
-		deploymentClient:    deploymentController,
-		jobClient:           jobController,
-		jobCache:            jobController.Cache(),
-		loggingClient:       loggingController,
-		fbagentClient:       fbagentController,
-		managedChartClient:  managedChartController,
-		managedChartCache:   managedChartController.Cache(),
-		pvcClient:           pvcController,
-		serviceClient:       serviceController,
-		statefulSetClient:   statefulSetController,
-		statefulSetCache:    statefulSetController.Cache(),
-		upgradeClient:       upgradeController,
-		upgradeCache:        upgradeController.Cache(),
-		upgradeLogClient:    upgradeLogController,
-		upgradeLogCache:     upgradeLogController.Cache(),
-		clientset:           management.ClientSet,
-		imageGetter:         NewImageGetter(),
+		ctx:                    ctx,
+		namespace:              options.Namespace,
+		addonCache:             addonController.Cache(),
+		clusterFlowClient:      clusterFlowController,
+		clusterOutputClient:    clusterOutputController,
+		daemonSetClient:        daemonSetController,
+		daemonSetCache:         daemonSetController.Cache(),
+		deploymentClient:       deploymentController,
+		jobClient:              jobController,
+		jobCache:               jobController.Cache(),
+		loggingClient:          loggingController,
+		fbagentClient:          fbagentController,
+		managedChartClient:     managedChartController,
+		managedChartCache:      managedChartController.Cache(),
+		bundleCache:            bundleController.Cache(),
+		bundleDeploymentClient: bundleDeploymentController,
+		bundleDeploymentCache:  bundleDeploymentController.Cache(),
+		fleetClusterCache:      fleetClusterController.Cache(),
+		pvcClient:              pvcController,
+		serviceClient:          serviceController,
+		statefulSetClient:      statefulSetController,
+		statefulSetCache:       statefulSetController.Cache(),
+		upgradeClient:          upgradeController,
+		upgradeCache:           upgradeController.Cache(),
+		upgradeLogClient:       upgradeLogController,
+		upgradeLogCache:        upgradeLogController.Cache(),
+		clientset:              management.ClientSet,
+		imageGetter:            NewImageGetter(),
 	}
 
 	upgradeLogController.OnChange(ctx, upgradeLogControllerName, handler.OnUpgradeLogChange)

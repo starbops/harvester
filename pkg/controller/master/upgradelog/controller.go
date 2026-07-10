@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	loggingv1 "github.com/kube-logging/logging-operator/pkg/sdk/logging/api/v1beta1"
+	fleetv1alpha1 "github.com/rancher/fleet/pkg/apis/fleet.cattle.io/v1alpha1"
 	mgmtv3 "github.com/rancher/rancher/pkg/apis/management.cattle.io/v3"
 	ctlmgmtv3 "github.com/rancher/rancher/pkg/generated/controllers/management.cattle.io/v3"
 	ctlappsv1 "github.com/rancher/wrangler/v3/pkg/generated/controllers/apps/v1"
@@ -45,6 +47,10 @@ const (
 	upgradeLogStateCollecting = "Collecting"
 	upgradeLogStateStopped    = "Stopped"
 
+	upgradeLogFleetCleanupFirstClearAtAnnotation = "harvesterhci.io/upgradeLogFleetCleanupFirstClearAt"
+	fleetCleanupSettleDuration                   = 15 * time.Second
+	fleetLocalClusterName                        = "local"
+
 	appLabelName = "app.kubernetes.io/name"
 
 	imageFluentbit      = "fluentbit"
@@ -66,31 +72,52 @@ var (
 )
 
 type handler struct {
-	ctx                 context.Context
-	namespace           string
-	addonCache          ctlharvesterv1.AddonCache
-	clusterFlowClient   ctlloggingv1.ClusterFlowClient
-	clusterOutputClient ctlloggingv1.ClusterOutputClient
-	daemonSetClient     ctlappsv1.DaemonSetClient
-	daemonSetCache      ctlappsv1.DaemonSetCache
-	deploymentClient    ctlappsv1.DeploymentClient
-	jobClient           ctlbatchv1.JobClient
-	jobCache            ctlbatchv1.JobCache
-	loggingClient       ctlloggingv1.LoggingClient
-	fbagentClient       ctlloggingv1.FluentbitAgentClient
-	managedChartClient  ctlmgmtv3.ManagedChartClient
-	managedChartCache   ctlmgmtv3.ManagedChartCache
-	pvcClient           ctlcorev1.PersistentVolumeClaimClient
-	serviceClient       ctlcorev1.ServiceClient
-	statefulSetClient   ctlappsv1.StatefulSetClient
-	statefulSetCache    ctlappsv1.StatefulSetCache
-	upgradeClient       ctlharvesterv1.UpgradeClient
-	upgradeCache        ctlharvesterv1.UpgradeCache
-	upgradeLogClient    ctlharvesterv1.UpgradeLogClient
-	upgradeLogCache     ctlharvesterv1.UpgradeLogCache
-	clientset           kubernetes.Interface
+	ctx                    context.Context
+	namespace              string
+	addonCache             ctlharvesterv1.AddonCache
+	clusterFlowClient      ctlloggingv1.ClusterFlowClient
+	clusterOutputClient    ctlloggingv1.ClusterOutputClient
+	daemonSetClient        ctlappsv1.DaemonSetClient
+	daemonSetCache         ctlappsv1.DaemonSetCache
+	deploymentClient       ctlappsv1.DeploymentClient
+	jobClient              ctlbatchv1.JobClient
+	jobCache               ctlbatchv1.JobCache
+	loggingClient          ctlloggingv1.LoggingClient
+	fbagentClient          ctlloggingv1.FluentbitAgentClient
+	managedChartClient     ctlmgmtv3.ManagedChartClient
+	managedChartCache      ctlmgmtv3.ManagedChartCache
+	bundleCache            fleetBundleCache
+	bundleDeploymentClient bundleDeploymentClient
+	bundleDeploymentCache  bundleDeploymentCache
+	fleetClusterCache      fleetClusterCache
+	pvcClient              ctlcorev1.PersistentVolumeClaimClient
+	serviceClient          ctlcorev1.ServiceClient
+	statefulSetClient      ctlappsv1.StatefulSetClient
+	statefulSetCache       ctlappsv1.StatefulSetCache
+	upgradeClient          ctlharvesterv1.UpgradeClient
+	upgradeCache           ctlharvesterv1.UpgradeCache
+	upgradeLogClient       ctlharvesterv1.UpgradeLogClient
+	upgradeLogCache        ctlharvesterv1.UpgradeLogCache
+	clientset              kubernetes.Interface
+	now                    func() time.Time
 
 	imageGetter ImageGetterInterface // for test code to mock helm
+}
+
+type fleetBundleCache interface {
+	Get(namespace, name string) (*fleetv1alpha1.Bundle, error)
+}
+
+type bundleDeploymentClient interface {
+	Delete(namespace, name string, options *metav1.DeleteOptions) error
+}
+
+type bundleDeploymentCache interface {
+	Get(namespace, name string) (*fleetv1alpha1.BundleDeployment, error)
+}
+
+type fleetClusterCache interface {
+	Get(namespace, name string) (*fleetv1alpha1.Cluster, error)
 }
 
 type Values struct {
@@ -743,10 +770,113 @@ func (h *handler) stopCollect(upgradeLog *harvesterv1.UpgradeLog) error {
 	return nil
 }
 
+func (h *handler) verifyFleetCleanup(upgradeLog *harvesterv1.UpgradeLog) error {
+	if upgradeLog.Annotations[util.UpgradeLogLoggingOperatorSource] == util.RancherLoggingName {
+		return nil
+	}
+
+	managedChartName := name.SafeConcatName(upgradeLog.Name, util.UpgradeLogOperatorComponent)
+	bundleName := name.SafeConcatName("mcc", managedChartName)
+
+	_, err := h.managedChartCache.Get(util.FleetLocalNamespaceName, managedChartName)
+	if err == nil {
+		return h.fleetCleanupPending(upgradeLog, fmt.Sprintf("logging ManagedChart %s/%s still exists", util.FleetLocalNamespaceName, managedChartName))
+	}
+	if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to verify logging ManagedChart %s/%s deletion: %w", util.FleetLocalNamespaceName, managedChartName, err)
+	}
+
+	_, err = h.bundleCache.Get(util.FleetLocalNamespaceName, bundleName)
+	if err == nil {
+		return h.fleetCleanupPending(upgradeLog, fmt.Sprintf("logging Bundle %s/%s still exists", util.FleetLocalNamespaceName, bundleName))
+	}
+	if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to verify logging Bundle %s/%s deletion: %w", util.FleetLocalNamespaceName, bundleName, err)
+	}
+
+	cluster, err := h.fleetClusterCache.Get(util.FleetLocalNamespaceName, fleetLocalClusterName)
+	if err != nil {
+		return fmt.Errorf("failed to get Fleet cluster %s/%s: %w", util.FleetLocalNamespaceName, fleetLocalClusterName, err)
+	}
+	if cluster.Status.Namespace == "" {
+		return fmt.Errorf("fleet cluster %s/%s has no status namespace", util.FleetLocalNamespaceName, fleetLocalClusterName)
+	}
+
+	bundleDeployment, err := h.bundleDeploymentCache.Get(cluster.Status.Namespace, bundleName)
+	if err == nil {
+		if bundleDeployment.Labels[fleetv1alpha1.BundleLabel] != bundleName ||
+			bundleDeployment.Labels[fleetv1alpha1.BundleNamespaceLabel] != util.FleetLocalNamespaceName {
+			return h.fleetCleanupPending(upgradeLog, fmt.Sprintf(
+				"BundleDeployment %s/%s does not have the expected Fleet bundle labels",
+				bundleDeployment.Namespace,
+				bundleDeployment.Name,
+			))
+		}
+
+		if bundleDeployment.DeletionTimestamp == nil {
+			deleteErr := h.bundleDeploymentClient.Delete(bundleDeployment.Namespace, bundleDeployment.Name, &metav1.DeleteOptions{})
+			if deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
+				return fmt.Errorf("failed to delete orphan logging BundleDeployment %s/%s: %w", bundleDeployment.Namespace, bundleDeployment.Name, deleteErr)
+			}
+		}
+
+		return h.fleetCleanupPending(upgradeLog, fmt.Sprintf("waiting for logging BundleDeployment %s/%s to be deleted", bundleDeployment.Namespace, bundleDeployment.Name))
+	}
+	if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to verify logging BundleDeployment %s/%s deletion: %w", cluster.Status.Namespace, bundleName, err)
+	}
+
+	return h.waitForFleetCleanupSettle(upgradeLog)
+}
+
+func (h *handler) fleetCleanupPending(upgradeLog *harvesterv1.UpgradeLog, message string) error {
+	if err := h.clearFleetCleanupFirstClearAt(upgradeLog); err != nil {
+		return fmt.Errorf("%s; failed to reset Fleet cleanup settle window: %w", message, err)
+	}
+	return fmt.Errorf("%s", message)
+}
+
+func (h *handler) clearFleetCleanupFirstClearAt(upgradeLog *harvesterv1.UpgradeLog) error {
+	if upgradeLog.Annotations[upgradeLogFleetCleanupFirstClearAtAnnotation] == "" {
+		return nil
+	}
+
+	toUpdate := upgradeLog.DeepCopy()
+	delete(toUpdate.Annotations, upgradeLogFleetCleanupFirstClearAtAnnotation)
+	_, err := h.upgradeLogClient.Update(toUpdate)
+	return err
+}
+
+func (h *handler) waitForFleetCleanupSettle(upgradeLog *harvesterv1.UpgradeLog) error {
+	now := time.Now().UTC()
+	if h.now != nil {
+		now = h.now().UTC()
+	}
+
+	firstClearAt, err := time.Parse(time.RFC3339Nano, upgradeLog.Annotations[upgradeLogFleetCleanupFirstClearAtAnnotation])
+	if err != nil {
+		toUpdate := upgradeLog.DeepCopy()
+		if toUpdate.Annotations == nil {
+			toUpdate.Annotations = make(map[string]string, 1)
+		}
+		toUpdate.Annotations[upgradeLogFleetCleanupFirstClearAtAnnotation] = now.Format(time.RFC3339Nano)
+		if _, updateErr := h.upgradeLogClient.Update(toUpdate); updateErr != nil {
+			return fmt.Errorf("failed to record first clear Fleet cleanup observation: %w", updateErr)
+		}
+		return fmt.Errorf("waiting %s to confirm Fleet cleanup has settled", fleetCleanupSettleDuration)
+	}
+
+	if now.Sub(firstClearAt) < fleetCleanupSettleDuration {
+		return fmt.Errorf("waiting %s to confirm Fleet cleanup has settled", fleetCleanupSettleDuration)
+	}
+
+	return nil
+}
+
 func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog) error {
 	// Cleanup the relationship from its corresponding Upgrade resource as more as possible, does not return on single error quickly
 	upgradeName := upgradeLog.Spec.UpgradeName
-	var err1, err2, err3 error
+	var err1, err2, err3, err4 error
 	err := fmt.Errorf("upgradeLog %s/%s upgrade %s cleanup errors", upgradeLog.Namespace, upgradeLog.Name, upgradeName)
 
 	// when the upgrade object is deleted, it's DeletionTimestamp is set, and all ownering resources' DeletionTimestamp are also set
@@ -786,8 +916,12 @@ func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog) error {
 	if err3 != nil {
 		err = fmt.Errorf("%w failed to clean other resources %w", err, err3)
 	}
+	err4 = h.verifyFleetCleanup(upgradeLog)
+	if err4 != nil {
+		err = fmt.Errorf("%w failed to verify Fleet cleanup %w", err, err4)
+	}
 
-	if err1 != nil || err2 != nil || err3 != nil {
+	if err1 != nil || err2 != nil || err3 != nil || err4 != nil {
 		// retry
 		logrus.Infof("%s, retry", err.Error())
 		return err

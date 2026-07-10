@@ -2,8 +2,10 @@ package upgradelog
 
 import (
 	"testing"
+	"time"
 
 	loggingv1 "github.com/kube-logging/logging-operator/pkg/sdk/logging/api/v1beta1"
+	fleetv1alpha1 "github.com/rancher/fleet/pkg/apis/fleet.cattle.io/v1alpha1"
 	mgmtv3 "github.com/rancher/rancher/pkg/apis/management.cattle.io/v3"
 	"github.com/rancher/wrangler/v3/pkg/name"
 	"github.com/stretchr/testify/assert"
@@ -12,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 
 	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
@@ -59,6 +62,8 @@ var (
 	testManagedChartName   = name.SafeConcatName(testUpgradeLogName, util.UpgradeLogOperatorComponent)
 	testClusterFlowName    = name.SafeConcatName(testUpgradeLogName, util.UpgradeLogFlowComponent)
 	testDeploymentName     = name.SafeConcatName(testUpgradeLogName, util.UpgradeLogDownloaderComponent)
+	testBundleName         = name.SafeConcatName("mcc", testManagedChartName)
+	testFleetClusterNS     = "cluster-fleet-local-local-test"
 )
 
 func newTestClusterFlowBuilder() *clusterFlowBuilder {
@@ -1118,4 +1123,206 @@ func (i *testImageGetter) GetConsolidatedLoggingImageListFromHelmValues(_ kubern
 
 func newTestImageGetter() *testImageGetter {
 	return &testImageGetter{}
+}
+
+func TestHandlerVerifyFleetCleanup(t *testing.T) {
+	now := time.Date(2026, time.March, 16, 2, 4, 30, 0, time.UTC)
+	deletionTimestamp := metav1.NewTime(now.Add(-time.Second))
+
+	testCases := []struct {
+		name                   string
+		operatorSource         string
+		firstClearAt           string
+		managedChart           *mgmtv3.ManagedChart
+		bundle                 *fleetv1alpha1.Bundle
+		bundleDeployment       *fleetv1alpha1.BundleDeployment
+		expectError            bool
+		expectFirstClearAt     bool
+		expectBundleLookups    int
+		expectClusterLookups   int
+		expectDeploymentLookup int
+		expectDeploymentDelete int
+	}{
+		{
+			name:                   "addon operator source skips Fleet cleanup",
+			operatorSource:         util.RancherLoggingName,
+			expectError:            false,
+			expectBundleLookups:    0,
+			expectClusterLookups:   0,
+			expectDeploymentLookup: 0,
+			expectDeploymentDelete: 0,
+		},
+		{
+			name:                 "managed chart still exists",
+			managedChart:         newTestManagedChartBuilder().Build(),
+			expectError:          true,
+			expectBundleLookups:  0,
+			expectClusterLookups: 0,
+		},
+		{
+			name: "bundle still exists",
+			bundle: &fleetv1alpha1.Bundle{
+				ObjectMeta: metav1.ObjectMeta{Name: testBundleName, Namespace: util.FleetLocalNamespaceName},
+			},
+			expectError:          true,
+			expectBundleLookups:  1,
+			expectClusterLookups: 0,
+		},
+		{
+			name: "orphan bundle deployment is deleted",
+			bundleDeployment: &fleetv1alpha1.BundleDeployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testBundleName,
+					Namespace: testFleetClusterNS,
+					Labels: map[string]string{
+						fleetv1alpha1.BundleLabel:          testBundleName,
+						fleetv1alpha1.BundleNamespaceLabel: util.FleetLocalNamespaceName,
+					},
+				},
+			},
+			expectError:            true,
+			expectBundleLookups:    1,
+			expectClusterLookups:   1,
+			expectDeploymentLookup: 1,
+			expectDeploymentDelete: 1,
+		},
+		{
+			name: "already deleting bundle deployment is not deleted again",
+			bundleDeployment: &fleetv1alpha1.BundleDeployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              testBundleName,
+					Namespace:         testFleetClusterNS,
+					DeletionTimestamp: &deletionTimestamp,
+					Labels: map[string]string{
+						fleetv1alpha1.BundleLabel:          testBundleName,
+						fleetv1alpha1.BundleNamespaceLabel: util.FleetLocalNamespaceName,
+					},
+				},
+			},
+			expectError:            true,
+			expectBundleLookups:    1,
+			expectClusterLookups:   1,
+			expectDeploymentLookup: 1,
+			expectDeploymentDelete: 0,
+		},
+		{
+			name:                   "all clear within settle window",
+			firstClearAt:           now.Add(-fleetCleanupSettleDuration + time.Second).Format(time.RFC3339Nano),
+			expectError:            true,
+			expectBundleLookups:    1,
+			expectClusterLookups:   1,
+			expectDeploymentLookup: 1,
+		},
+		{
+			name:                   "all clear after settle window",
+			firstClearAt:           now.Add(-fleetCleanupSettleDuration - time.Second).Format(time.RFC3339Nano),
+			expectError:            false,
+			expectBundleLookups:    1,
+			expectClusterLookups:   1,
+			expectDeploymentLookup: 1,
+		},
+		{
+			name:                   "first all clear observation is persisted",
+			expectError:            true,
+			expectFirstClearAt:     true,
+			expectBundleLookups:    1,
+			expectClusterLookups:   1,
+			expectDeploymentLookup: 1,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			upgradeLogBuilder := newTestUpgradeLogBuilder()
+			if tc.operatorSource != "" {
+				upgradeLogBuilder.LoggingOperatorSource(tc.operatorSource)
+			}
+			if tc.firstClearAt != "" {
+				upgradeLogBuilder.WithAnnotation(upgradeLogFleetCleanupFirstClearAtAnnotation, tc.firstClearAt)
+			}
+			upgradeLog := upgradeLogBuilder.Build()
+			clientset := fake.NewSimpleClientset(upgradeLog)
+			if tc.managedChart != nil {
+				assert.NoError(t, clientset.Tracker().Add(tc.managedChart))
+			}
+
+			var bundleLookups, clusterLookups, deploymentLookups, deploymentDeletes int
+			h := &handler{
+				managedChartCache: fakeclients.ManagedChartCache(clientset.ManagementV3().ManagedCharts),
+				upgradeLogClient:  fakeclients.UpgradeLogClient(clientset.HarvesterhciV1beta1().UpgradeLogs),
+				bundleCache: fakeclients.FleetBundleCache(func(namespace, bundleName string) (*fleetv1alpha1.Bundle, error) {
+					bundleLookups++
+					assert.Equal(t, util.FleetLocalNamespaceName, namespace)
+					assert.Equal(t, testBundleName, bundleName)
+					if tc.bundle != nil {
+						return tc.bundle, nil
+					}
+					return nil, apierrors.NewNotFound(schema.GroupResource{Group: fleetv1alpha1.SchemeGroupVersion.Group, Resource: "bundles"}, bundleName)
+				}),
+				fleetClusterCache: fakeclients.FleetClusterCache(func(namespace, clusterName string) (*fleetv1alpha1.Cluster, error) {
+					clusterLookups++
+					assert.Equal(t, util.FleetLocalNamespaceName, namespace)
+					assert.Equal(t, "local", clusterName)
+					return &fleetv1alpha1.Cluster{
+						ObjectMeta: metav1.ObjectMeta{Name: clusterName, Namespace: namespace},
+						Status:     fleetv1alpha1.ClusterStatus{Namespace: testFleetClusterNS},
+					}, nil
+				}),
+				bundleDeploymentCache: fakeclients.BundleDeploymentCache(func(namespace, deploymentName string) (*fleetv1alpha1.BundleDeployment, error) {
+					deploymentLookups++
+					assert.Equal(t, testFleetClusterNS, namespace)
+					assert.Equal(t, testBundleName, deploymentName)
+					if tc.bundleDeployment != nil {
+						return tc.bundleDeployment, nil
+					}
+					return nil, apierrors.NewNotFound(schema.GroupResource{Group: fleetv1alpha1.SchemeGroupVersion.Group, Resource: fleetv1alpha1.BundleDeploymentResourceNamePlural}, deploymentName)
+				}),
+				bundleDeploymentClient: fakeclients.BundleDeploymentClient(func(namespace, deploymentName string, _ *metav1.DeleteOptions) error {
+					deploymentDeletes++
+					assert.Equal(t, testFleetClusterNS, namespace)
+					assert.Equal(t, testBundleName, deploymentName)
+					return nil
+				}),
+				now: func() time.Time { return now },
+			}
+
+			err := h.verifyFleetCleanup(upgradeLog)
+			if tc.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tc.expectBundleLookups, bundleLookups)
+			assert.Equal(t, tc.expectClusterLookups, clusterLookups)
+			assert.Equal(t, tc.expectDeploymentLookup, deploymentLookups)
+			assert.Equal(t, tc.expectDeploymentDelete, deploymentDeletes)
+
+			if tc.expectFirstClearAt {
+				updated, getErr := clientset.HarvesterhciV1beta1().UpgradeLogs(upgradeLog.Namespace).Get(t.Context(), upgradeLog.Name, metav1.GetOptions{})
+				assert.NoError(t, getErr)
+				assert.Equal(t, now.Format(time.RFC3339Nano), updated.Annotations[upgradeLogFleetCleanupFirstClearAtAnnotation])
+			}
+		})
+	}
+}
+
+func TestHandlerCleanupUnlinksUpgrade(t *testing.T) {
+	upgrade := newTestUpgradeBuilder().UpgradeLogStatus(testUpgradeLogName).Build()
+	upgradeLog := newTestUpgradeLogBuilder().LoggingOperatorSource(util.RancherLoggingName).Build()
+	clientset := fake.NewSimpleClientset(upgrade, upgradeLog)
+
+	h := &handler{
+		clusterFlowClient:   fakeclients.ClusterFlowClient(clientset.LoggingV1beta1().ClusterFlows),
+		clusterOutputClient: fakeclients.ClusterOutputClient(clientset.LoggingV1beta1().ClusterOutputs),
+		loggingClient:       fakeclients.LoggingClient(clientset.LoggingV1beta1().Loggings),
+		fbagentClient:       fakeclients.FluentbitAgentClient(clientset.LoggingV1beta1().FluentbitAgents),
+		managedChartClient:  fakeclients.ManagedChartClient(clientset.ManagementV3().ManagedCharts),
+		upgradeClient:       fakeclients.UpgradeClient(clientset.HarvesterhciV1beta1().Upgrades),
+		upgradeCache:        fakeclients.UpgradeCache(clientset.HarvesterhciV1beta1().Upgrades),
+	}
+
+	assert.NoError(t, h.cleanup(upgradeLog))
+	updated, err := h.upgradeCache.Get(util.HarvesterSystemNamespaceName, testUpgradeName)
+	assert.NoError(t, err)
+	assert.Empty(t, updated.Status.UpgradeLog)
 }
