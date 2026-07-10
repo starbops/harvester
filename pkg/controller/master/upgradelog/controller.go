@@ -2,6 +2,7 @@ package upgradelog
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -98,6 +99,7 @@ type handler struct {
 	upgradeCache           ctlharvesterv1.UpgradeCache
 	upgradeLogClient       ctlharvesterv1.UpgradeLogClient
 	upgradeLogCache        ctlharvesterv1.UpgradeLogCache
+	upgradeLogEnqueueAfter func(namespace, name string, duration time.Duration)
 	clientset              kubernetes.Interface
 	now                    func() time.Time
 
@@ -806,11 +808,16 @@ func (h *handler) verifyFleetCleanup(upgradeLog *harvesterv1.UpgradeLog) error {
 	if err == nil {
 		if bundleDeployment.Labels[fleetv1alpha1.BundleLabel] != bundleName ||
 			bundleDeployment.Labels[fleetv1alpha1.BundleNamespaceLabel] != util.FleetLocalNamespaceName {
-			return h.fleetCleanupPending(upgradeLog, fmt.Sprintf(
-				"BundleDeployment %s/%s does not have the expected Fleet bundle labels",
+			logrus.Warnf(
+				"Skipping BundleDeployment %s/%s because it does not have the expected Fleet bundle labels %s=%q and %s=%q",
 				bundleDeployment.Namespace,
 				bundleDeployment.Name,
-			))
+				fleetv1alpha1.BundleLabel,
+				bundleName,
+				fleetv1alpha1.BundleNamespaceLabel,
+				util.FleetLocalNamespaceName,
+			)
+			return h.waitForFleetCleanupSettle(upgradeLog)
 		}
 
 		if bundleDeployment.DeletionTimestamp == nil {
@@ -833,7 +840,7 @@ func (h *handler) fleetCleanupPending(upgradeLog *harvesterv1.UpgradeLog, messag
 	if err := h.clearFleetCleanupFirstClearAt(upgradeLog); err != nil {
 		return fmt.Errorf("%s; failed to reset Fleet cleanup settle window: %w", message, err)
 	}
-	return fmt.Errorf("%s", message)
+	return errors.New(message)
 }
 
 func (h *handler) clearFleetCleanupFirstClearAt(upgradeLog *harvesterv1.UpgradeLog) error {
@@ -863,14 +870,24 @@ func (h *handler) waitForFleetCleanupSettle(upgradeLog *harvesterv1.UpgradeLog) 
 		if _, updateErr := h.upgradeLogClient.Update(toUpdate); updateErr != nil {
 			return fmt.Errorf("failed to record first clear Fleet cleanup observation: %w", updateErr)
 		}
+		h.enqueueFleetCleanupCheck(upgradeLog)
 		return fmt.Errorf("waiting %s to confirm Fleet cleanup has settled", fleetCleanupSettleDuration)
 	}
 
 	if now.Sub(firstClearAt) < fleetCleanupSettleDuration {
+		h.enqueueFleetCleanupCheck(upgradeLog)
 		return fmt.Errorf("waiting %s to confirm Fleet cleanup has settled", fleetCleanupSettleDuration)
 	}
 
 	return nil
+}
+
+func (h *handler) enqueueFleetCleanupCheck(upgradeLog *harvesterv1.UpgradeLog) {
+	if h.upgradeLogEnqueueAfter == nil {
+		return
+	}
+
+	h.upgradeLogEnqueueAfter(upgradeLog.Namespace, upgradeLog.Name, fleetCleanupSettleDuration)
 }
 
 func (h *handler) cleanup(upgradeLog *harvesterv1.UpgradeLog) error {

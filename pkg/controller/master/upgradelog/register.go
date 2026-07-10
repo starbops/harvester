@@ -2,6 +2,7 @@ package upgradelog
 
 import (
 	"context"
+	"time"
 
 	fleetv1alpha1 "github.com/rancher/fleet/pkg/apis/fleet.cattle.io/v1alpha1"
 	"github.com/rancher/wrangler/v3/pkg/generic"
@@ -75,8 +76,10 @@ func Register(ctx context.Context, management *config.Management, options config
 		upgradeCache:           upgradeController.Cache(),
 		upgradeLogClient:       upgradeLogController,
 		upgradeLogCache:        upgradeLogController.Cache(),
+		upgradeLogEnqueueAfter: upgradeLogController.EnqueueAfter,
 		clientset:              management.ClientSet,
 		imageGetter:            NewImageGetter(),
+		now:                    time.Now,
 	}
 
 	upgradeLogController.OnChange(ctx, upgradeLogControllerName, handler.OnUpgradeLogChange)
